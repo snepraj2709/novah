@@ -774,7 +774,7 @@ The time boxes are limits, not invitations to expand the phase. If a phase gate 
 - [x] 0.5 Configure the root `pnpm` workspace.
 - [x] 0.6 Scaffold `apps/web` with React, TypeScript and Vite.
 - [x] 0.7 Scaffold `apps/extension` with WXT, React and TypeScript.
-- [ ] 0.8 Create `packages/shared` with exported constants and placeholder Zod schemas.
+- [x] 0.8 Create `packages/shared` with exported constants and placeholder Zod schemas.
 - [ ] 0.9 Add root formatting, linting and type-check commands.
 - [ ] 0.10 Add `.env.example` and confirm real `.env` files are ignored.
 - [ ] 0.11 Add `docs/runbook.md` and `docs/test-evidence.md` placeholders.
@@ -1321,6 +1321,7 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-01 14:49 IST | 0.5 Configure the root `pnpm` workspace | `package.json`, `pnpm-workspace.yaml`, `PRODUCT_PLAN.md` | Parsed the private root manifest successfully; `pnpm list --recursive --depth -1` recognized `novah@0.0.0`; workspace globs cover `apps/*` and `packages/*`; `pnpm-lock.yaml` remains absent. | Complete: root pnpm workspace configured without installing packages or starting application scaffolds. |
 | 2026-08-01 15:03 IST | 0.6 Scaffold `apps/web` with React, TypeScript and Vite | `apps/web/**`, `.gitignore`, `pnpm-lock.yaml`, `PRODUCT_PLAN.md` | Official Vite scaffold created `web@0.0.0` with React `19.2.8`, TypeScript `6.0.2` and Vite `8.2.0`; Tailwind `4.3.3` compiles through `@tailwindcss/vite`; `pnpm --filter web lint` and `pnpm --filter web build` passed; exactly one lockfile exists. | Complete: web scaffold builds successfully; extension, shared package, Supabase and docs remain untouched. |
 | 2026-08-01 15:14 IST | 0.7 Scaffold `apps/extension` with WXT, React and TypeScript | `apps/extension/**`, `pnpm-lock.yaml`, `PRODUCT_PLAN.md` | Official WXT `0.21.3` React template created `extension@0.0.0`; `pnpm --filter extension compile` and `pnpm --filter extension build` passed; output is Chrome Manifest V3 with no content scripts or host permissions; exactly one workspace lockfile remains. | Complete: extension scaffold builds successfully; Firefox scripts were excluded and item 0.8 areas remain untouched. |
+| 2026-08-01 15:24 IST | 0.8 Create `packages/shared` with exported constants and placeholder Zod schemas | `packages/shared/**`, `.gitignore`, `pnpm-lock.yaml`, `PRODUCT_PLAN.md` | Created `@novah/shared` exports for constants, contracts and types; locked note, channel, review and schedule values are exported; placeholder capture/search schemas use Zod `4.4.3`; `pnpm --filter @novah/shared typecheck` and runtime schema checks passed; one lockfile remains. | Complete: shared package is typed and runtime-valid; root formatting, linting and type-check orchestration remain deferred to item 0.9. |
 
 ---
 
