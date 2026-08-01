@@ -4,6 +4,8 @@ export type ApiErrorCode =
   | 'origin_not_allowed'
   | 'unauthorized'
   | 'ai_unavailable'
+  | 'payload_too_large'
+  | 'telegram_unavailable'
   | 'internal_error';
 
 export class ApiError extends Error {

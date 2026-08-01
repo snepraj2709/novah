@@ -13,7 +13,9 @@
     "deno-globals.d.ts",
     "_shared/**/*.ts",
     "capture-note/**/*.ts",
-    "search-notes/**/*.ts"
+    "search-notes/**/*.ts",
+    "telegram-link-code/**/*.ts",
+    "telegram-webhook/**/*.ts"
   ],
   "exclude": ["tests"]
 }

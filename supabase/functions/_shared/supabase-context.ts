@@ -145,4 +145,25 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
       similarity: row.similarity,
     }));
   }
+
+  async createTelegramLinkCode(
+    codeHash: string,
+  ): Promise<{ expiresAt: string; connected: boolean }> {
+    const client = this.authenticatedClient();
+    const { data, error } = await client.rpc('create_telegram_link_code', {
+      input_code_hash: codeHash,
+    });
+    const row = data?.[0];
+    if (error || !row)
+      throw new ApiError(
+        500,
+        'internal_error',
+        'A Telegram link code could not be created.',
+        true,
+      );
+    return {
+      expiresAt: row.expires_at,
+      connected: row.connected,
+    };
+  }
 }

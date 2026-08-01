@@ -12,6 +12,8 @@
     "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/types/database.generated.ts && prettier --write packages/shared/src/types/database.generated.ts",
     "test:functions": "node --experimental-strip-types --test supabase/functions/tests/*.test.ts",
     "test:functions:hosted": "node scripts/verify-phase-2-hosted.mjs",
+    "test:telegram:hosted": "node scripts/verify-phase-4-hosted.mjs",
+    "test:telegram:live": "node scripts/verify-phase-4-live.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "oxlint apps packages supabase/functions --deny-warnings",
@@ -26,6 +28,7 @@
     "oxlint": "^1.76.0",
     "prettier": "^3.9.6",
     "supabase": "^2.111.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "zod": "4.4.3"
   }
 }

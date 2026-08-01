@@ -7,18 +7,30 @@ export interface FunctionEnvironment {
   cors: CorsConfiguration;
 }
 
+export type PublicFunctionEnvironment = Omit<
+  FunctionEnvironment,
+  'openAiApiKey'
+>;
+
+export interface TelegramFunctionEnvironment {
+  openAiApiKey: string;
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  telegramBotToken: string;
+  telegramWebhookSecret: string;
+}
+
 function required(name: string): string {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
 
-export function functionEnvironment(): FunctionEnvironment {
+export function publicFunctionEnvironment(): PublicFunctionEnvironment {
   const supabaseUrl = required('SUPABASE_URL');
   const publishableKey =
     Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? required('SUPABASE_ANON_KEY');
   return {
-    openAiApiKey: required('OPENAI_API_KEY'),
     supabaseUrl,
     supabasePublishableKey: publishableKey,
     cors: {
@@ -30,5 +42,22 @@ export function functionEnvironment(): FunctionEnvironment {
       allowLocalDevelopment:
         supabaseUrl.includes('127.0.0.1') || supabaseUrl.includes('localhost'),
     },
+  };
+}
+
+export function functionEnvironment(): FunctionEnvironment {
+  return {
+    ...publicFunctionEnvironment(),
+    openAiApiKey: required('OPENAI_API_KEY'),
+  };
+}
+
+export function telegramFunctionEnvironment(): TelegramFunctionEnvironment {
+  return {
+    openAiApiKey: required('OPENAI_API_KEY'),
+    supabaseUrl: required('SUPABASE_URL'),
+    supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
+    telegramBotToken: required('TELEGRAM_BOT_TOKEN'),
+    telegramWebhookSecret: required('TELEGRAM_WEBHOOK_SECRET'),
   };
 }

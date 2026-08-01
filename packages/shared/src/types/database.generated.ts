@@ -273,10 +273,66 @@ export type Database = {
           stored_tags: string[];
         }[];
       };
+      capture_note_atomic_for_user: {
+        Args: {
+          input_capture_channel: Database['public']['Enums']['capture_channel'];
+          input_client_request_id: string;
+          input_embedding: string;
+          input_note_type: Database['public']['Enums']['note_type'];
+          input_original_text: string;
+          input_personal_context: string;
+          input_recall_prompt: string;
+          input_source_title: string;
+          input_source_url: string;
+          input_summary: string;
+          input_tags: string[];
+          input_user_id: string;
+        };
+        Returns: {
+          created: boolean;
+          first_review_date: string;
+          note_id: string;
+          stored_note_type: Database['public']['Enums']['note_type'];
+          stored_original_text: string;
+          stored_summary: string;
+          stored_tags: string[];
+        }[];
+      };
+      consume_telegram_link_code: {
+        Args: { input_chat_id: number; input_code_hash: string };
+        Returns: string;
+      };
+      create_telegram_link_code: {
+        Args: { input_code_hash: string };
+        Returns: {
+          connected: boolean;
+          expires_at: string;
+        }[];
+      };
       is_http_url: { Args: { input_url: string }; Returns: boolean };
       is_valid_timezone: { Args: { timezone_name: string }; Returns: boolean };
       match_notes: {
         Args: { match_count?: number; query_embedding: string };
+        Returns: {
+          captured_at: string;
+          note_id: string;
+          note_type: Database['public']['Enums']['note_type'];
+          original_text: string;
+          personal_context: string;
+          recall_prompt: string;
+          similarity: number;
+          source_title: string;
+          source_url: string;
+          summary: string;
+          tags: string[];
+        }[];
+      };
+      match_notes_for_user: {
+        Args: {
+          input_user_id: string;
+          match_count?: number;
+          query_embedding: string;
+        };
         Returns: {
           captured_at: string;
           note_id: string;

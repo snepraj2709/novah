@@ -2,10 +2,13 @@ import {
   captureNoteResponseSchema,
   searchNotesRequestSchema,
   searchNotesResponseSchema,
+  telegramLinkCodeRequestSchema,
+  telegramLinkCodeResponseSchema,
   type CaptureNoteRequest,
   type CaptureNoteResponse,
   type SearchNotesRequest,
   type SearchNotesResponse,
+  type TelegramLinkCodeResponse,
 } from '@novah/shared/contracts';
 
 import { getPublicExtensionConfig } from './config.ts';
@@ -24,7 +27,7 @@ export class ExtensionApiError extends Error {
 }
 
 async function invokeFunction(
-  functionName: 'capture-note' | 'search-notes',
+  functionName: 'capture-note' | 'search-notes' | 'telegram-link-code',
   body: unknown,
 ): Promise<unknown> {
   const { data, error } = await supabase.auth.getSession();
@@ -113,6 +116,22 @@ export async function searchNotes(
   if (!parsed.success) {
     throw new ExtensionApiError(
       'Novah returned an invalid recall response.',
+      'invalid_response',
+      true,
+    );
+  }
+  return parsed.data;
+}
+
+export async function generateTelegramLinkCode(): Promise<TelegramLinkCodeResponse> {
+  const payload = await invokeFunction(
+    'telegram-link-code',
+    telegramLinkCodeRequestSchema.parse({}),
+  );
+  const parsed = telegramLinkCodeResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new ExtensionApiError(
+      'Novah returned an invalid Telegram link response.',
       'invalid_response',
       true,
     );

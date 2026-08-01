@@ -964,19 +964,19 @@ feat: add browser capture and recall extension
 
 #### Checklist
 
-- [ ] 4.1 Implement secure one-time link-code generation in Settings.
-- [ ] 4.2 Implement `/start` and `/link CODE`.
-- [ ] 4.3 Validate, consume and expire link codes.
-- [ ] 4.4 Validate Telegram webhook secret headers.
-- [ ] 4.5 Deduplicate webhook updates with `update_id`.
-- [ ] 4.6 Map linked chat IDs to application users.
-- [ ] 4.7 Route plain and forwarded text through the capture service.
-- [ ] 4.8 Implement `/search QUERY` through the search service.
-- [ ] 4.9 Implement `/today`, `/review` and `/settings` responses.
-- [ ] 4.10 Download bounded voice messages.
-- [ ] 4.11 Transcribe with `gpt-transcribe` and discard raw audio.
-- [ ] 4.12 Send capture confirmation without echoing sensitive content unnecessarily.
-- [ ] 4.13 Set the live webhook only after Sneha approves the external action.
+- [x] 4.1 Implement secure one-time link-code generation in Settings.
+- [x] 4.2 Implement `/start` and `/link CODE`.
+- [x] 4.3 Validate, consume and expire link codes.
+- [x] 4.4 Validate Telegram webhook secret headers.
+- [x] 4.5 Deduplicate webhook updates with `update_id`.
+- [x] 4.6 Map linked chat IDs to application users.
+- [x] 4.7 Route plain and forwarded text through the capture service.
+- [x] 4.8 Implement `/search QUERY` through the search service.
+- [x] 4.9 Implement `/today`, `/review` and `/settings` responses.
+- [x] 4.10 Download bounded voice messages.
+- [x] 4.11 Transcribe with `gpt-transcribe` and discard raw audio.
+- [x] 4.12 Send capture confirmation without echoing sensitive content unnecessarily.
+- [x] 4.13 Set the live webhook only after Sneha approves the external action.
 
 #### Verification cases
 
@@ -1209,7 +1209,7 @@ chore: package chrome private beta
 | 1. Data foundation | Complete | Both migrations are applied to Novah; local reset and schema lint pass; 30 pgTAP assertions pass; hosted password-auth CRUD, cross-user isolation, caller-scoped `match_notes`, anonymous denial, service-role table access and fixture cleanup pass; corrected generated types compile. | — |
 | 2. Capture and recall | Complete | Approved migration and both JWT-protected functions are active on Novah; 10 deterministic function tests, 42 pgTAP assertions, local/hosted schema lint, full type-check and hosted cases 1–6 pass; mocked OpenAI failure proves no partial note or review rows; hosted fixtures were removed. | — |
 | 3. Chrome extension | Complete | Production build, type-check, lint, formatting, 9 unit tests, locked-manifest and secret scans pass; the stable-ID unpacked build loads in a disposable Chrome profile; the controlled browser matrix covers selection, PDF fallback, signed-out persistence, failure/retry, duplicate-click and recall states; an approved hosted capture proves extension-origin CORS plus exactly one note and five reviews, followed by fixture cleanup. | — |
-| 4. Telegram | Not started | — | — |
+| 4. Telegram | Complete | Approved migration and both functions are active on Novah; 19 Phase 4 pgTAP assertions and 18 Telegram handler tests pass; hosted link-code/security fixtures, the live text/voice/search/command journey, signed replay, unknown-chat isolation, exact five-review checks and cleanup pass without recording content or identifiers. | — |
 | 5. Digest and reviews | Not started | — | — |
 | 6. Web dashboard | Not started | — | — |
 | 7. Hardening | Not started | — | — |
@@ -1348,6 +1348,8 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-01 23:40 IST | 3.1–3.5 Manifest, authentication and selection capture | Extension manifest, background worker, storage and Supabase client | The emitted Manifest V3 file contains only `contextMenus`, `sidePanel`, `storage`, `activeTab` and the exact Novah host; the stable unpacked ID loaded with its service worker; controlled browser checks covered signed-out draft persistence, extension-safe session persistence and selected text/title/URL transfer. | Complete: no broad host access or privileged client credential was introduced; selection-only registration and side-panel opening are active. |
 | 2026-08-01 23:40 IST | 3.6–3.10 Capture and Recall experience | Side-panel React application, shared API adapter, draft and citation helpers, extension tests | Nine deterministic tests and a production-browser matrix covered field validation, Chrome PDF/manual fallback, failed-draft retention, same-key retry, rapid duplicate submission, loading/success/signed-out/empty/error states, ranked matches, weak synthesis and citation-to-returned-note mapping. | Complete: calls authenticate against the deployed Phase 2 contracts and drafts remain local until a successful capture. |
 | 2026-08-01 23:40 IST | 3.11 and Phase 3 gate | Production Chrome build, runbook and test evidence | The production bundle loaded under stable ID `mgjpgplhhbhlakjiaikaniaadapgofjd`; manifest assertions and built-asset scans passed. After approval, Novah received the exact extension-origin allowlist; one disposable hosted journey proved sign-in, extension CORS, offline preservation, one-request retry, one owned note and five reviews. Phase 2 hosted recall evidence and the Phase 3 production-UI recall matrix cover natural-language ranked/citation behavior. | Complete: the disposable account, rows, local storage, verifier and Chrome profile were removed; only two of the approved maximum four model calls were used. Phase 4 is next. |
+| 2026-08-02 01:37 IST | 4.1–4.12 Telegram linking, capture and recall | Shared contracts and database types, Phase 4 migration and pgTAP tests, Telegram Edge Function infrastructure, link-code and webhook functions, extension Settings control, deterministic and hosted verifiers | Clean local migration replay, warning-free local and hosted schema lint, 61 total pgTAP assertions, 28 total function tests, recursive type-check, lint, formatting, production extension build and secret scans passed. A disposable hosted run proved authenticated hash-only ten-minute codes, single use, chat ownership, invalid/expired denial, secret rejection and cleanup. | Complete: text, forwarded-text, search, command and bounded voice paths are user-scoped; raw audio has no durable-storage path and in-memory buffers are cleared; confirmations do not echo captured content. |
+| 2026-08-02 01:37 IST | 4.13 and Phase 4 gate | Phase 4 migration, `telegram-link-code`, `telegram-webhook`, live Telegram journey and privacy-safe persistence verifier | After separate approvals, migration `20260802004240` reached parity on Novah, both functions became active with the intended JWT settings, and Telegram confirmed the live `message` webhook. The controlled private-chat journey passed link, text, voice, cited search, today, review and settings; persisted checks found both capture channels on one linked profile, distinct idempotency keys and exactly five review stages per note. Signed duplicate and unknown-chat probes returned the expected acknowledgements; one stored claim per update, zero post-probe notes and fixture deletion were verified. | Complete: all Phase 4 verification cases and the phase gate pass; seven of the approved maximum eight model calls were used within the approved ceiling; no secret, note body, transcription, authorization value or identifier was retained in evidence. Phase 5 is next. |
 
 ---
 

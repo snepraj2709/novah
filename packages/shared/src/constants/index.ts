@@ -41,6 +41,13 @@ export const MAX_SOURCE_TITLE_LENGTH = 500;
 export const MAX_SOURCE_URL_LENGTH = 2_048;
 export const MAX_SEARCH_QUERY_LENGTH = 500;
 
+export const TELEGRAM_LINK_CODE_LENGTH = 12;
+export const TELEGRAM_LINK_CODE_TTL_MINUTES = 10;
+export const MAX_TELEGRAM_VOICE_DURATION_SECONDS = 120;
+export const MAX_TELEGRAM_VOICE_BYTES = 10 * 1024 * 1024;
+export const MAX_TELEGRAM_MESSAGE_LENGTH = 4_096;
+
 export const OPENAI_TEXT_MODEL = 'gpt-5.6-luna';
 export const OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
 export const OPENAI_EMBEDDING_DIMENSIONS = 1_536;
+export const OPENAI_TRANSCRIPTION_MODEL = 'gpt-transcribe';

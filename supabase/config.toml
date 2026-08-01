@@ -388,6 +388,12 @@ verify_jwt = true
 [functions.search-notes]
 verify_jwt = true
 
+[functions.telegram-link-code]
+verify_jwt = true
+
+[functions.telegram-webhook]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

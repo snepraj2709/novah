@@ -200,7 +200,7 @@ button:disabled {
 
 .tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   padding: 0 20px;
   border-bottom: 1px solid #dfddd4;
   background: #f7f4ed;
@@ -398,6 +398,35 @@ button:disabled {
   min-height: 50vh;
   color: #67706a;
   font-size: 13px;
+}
+.telegram-link-card {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid #cdd9d2;
+  border-radius: 13px;
+  background: #fffdf8;
+}
+.telegram-link-card code {
+  display: block;
+  margin: 12px 0;
+  color: #244c3c;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+.telegram-link-card p {
+  margin: 0;
+  color: #5d6963;
+  font-size: 12px;
+}
+.connection-status {
+  font-weight: 750;
+}
+.privacy-note {
+  margin-top: 18px;
+  color: #747a76;
+  font-size: 11px;
 }
 .spinner {
   width: 17px;

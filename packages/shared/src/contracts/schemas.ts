@@ -11,6 +11,7 @@ import {
   MAX_SOURCE_URL_LENGTH,
   NOTE_TYPES,
   REVIEW_STATUSES,
+  TELEGRAM_LINK_CODE_LENGTH,
 } from '../constants/index.ts';
 
 export const noteTypeSchema = z.enum(NOTE_TYPES);
@@ -151,9 +152,28 @@ export const searchNotesResponseSchema = z
     }
   });
 
+export const telegramLinkCodeRequestSchema = z.object({}).strict();
+
+export const telegramLinkCodeResponseSchema = z
+  .object({
+    code: z
+      .string()
+      .length(TELEGRAM_LINK_CODE_LENGTH)
+      .regex(/^[A-HJ-NP-Z2-9]+$/u),
+    expiresAt: z.iso.datetime({ offset: true }),
+    connected: z.boolean(),
+  })
+  .strict();
+
 export type CaptureNoteRequest = z.infer<typeof captureNoteRequestSchema>;
 export type CaptureNoteResponse = z.infer<typeof captureNoteResponseSchema>;
 export type Enrichment = z.infer<typeof enrichmentSchema>;
 export type SearchNotesRequest = z.infer<typeof searchNotesRequestSchema>;
 export type SearchNotesResponse = z.infer<typeof searchNotesResponseSchema>;
 export type SearchMatch = z.infer<typeof searchMatchSchema>;
+export type TelegramLinkCodeRequest = z.infer<
+  typeof telegramLinkCodeRequestSchema
+>;
+export type TelegramLinkCodeResponse = z.infer<
+  typeof telegramLinkCodeResponseSchema
+>;

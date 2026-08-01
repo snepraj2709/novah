@@ -2,13 +2,19 @@ import type { Session } from '@supabase/supabase-js';
 import type {
   CaptureNoteResponse,
   SearchNotesResponse,
+  TelegramLinkCodeResponse,
 } from '@novah/shared/contracts';
 import { NOTE_TYPES as SHARED_NOTE_TYPES } from '@novah/shared/constants';
 import type { NoteType } from '@novah/shared/types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { captureNote, ExtensionApiError, searchNotes } from '../../lib/api.ts';
+import {
+  captureNote,
+  ExtensionApiError,
+  generateTelegramLinkCode,
+  searchNotes,
+} from '../../lib/api.ts';
 import { answerSegments } from '../../lib/citations.ts';
 import {
   activateDraft,
@@ -31,7 +37,7 @@ import {
 } from '../../lib/draft-storage.ts';
 import { supabase } from '../../lib/supabase.ts';
 
-type Tab = 'capture' | 'recall';
+type Tab = 'capture' | 'recall' | 'settings';
 type AuthMode = 'sign-in' | 'create-account';
 
 const NOTE_TYPES: Array<{ value: NoteType; label: string }> = [
@@ -562,6 +568,71 @@ function RecallPanel() {
   );
 }
 
+function SettingsPanel() {
+  const [link, setLink] = useState<TelegramLinkCodeResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function generateCode() {
+    setBusy(true);
+    setError(null);
+    try {
+      setLink(await generateTelegramLinkCode());
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not create a Telegram link code.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Settings</p>
+          <h2>Connect Telegram</h2>
+        </div>
+      </div>
+      <p className="subtle">
+        Generate a one-time code, then send it to the Novah bot from the private
+        Telegram chat you want to connect.
+      </p>
+      {error && (
+        <p className="message error" role="alert">
+          {error}
+        </p>
+      )}
+      {link && (
+        <div className="telegram-link-card" aria-live="polite">
+          <p className="connection-status">
+            {link.connected
+              ? 'A Telegram chat is already connected.'
+              : 'No Telegram chat is connected yet.'}
+          </p>
+          <code aria-label="Telegram link code">{link.code}</code>
+          <p>
+            Send <strong>/link {link.code}</strong> to the Novah bot. This code
+            expires at {new Date(link.expiresAt).toLocaleTimeString()} and works
+            once.
+          </p>
+        </div>
+      )}
+      <button
+        className="primary"
+        type="button"
+        disabled={busy}
+        onClick={() => void generateCode()}
+      >
+        {busy ? 'Generating…' : link ? 'Generate a new code' : 'Generate code'}
+      </button>
+      <p className="privacy-note">
+        Telegram messages pass through Telegram infrastructure. Novah never
+        stores raw voice audio.
+      </p>
+    </section>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -650,6 +721,13 @@ export default function App() {
             >
               Recall
             </button>
+            <button
+              type="button"
+              className={tab === 'settings' ? 'active' : ''}
+              onClick={() => setTab('settings')}
+            >
+              Settings
+            </button>
           </nav>
           <div className="content">
             {tab === 'capture' ? (
@@ -657,8 +735,10 @@ export default function App() {
                 collection={collection}
                 setCollection={setCollection}
               />
-            ) : (
+            ) : tab === 'recall' ? (
               <RecallPanel />
+            ) : (
+              <SettingsPanel />
             )}
           </div>
         </>
