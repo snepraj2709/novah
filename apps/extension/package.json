@@ -9,10 +9,13 @@
     "build": "wxt build",
     "zip": "wxt zip",
     "compile": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
+    "@novah/shared": "workspace:*",
+    "@supabase/supabase-js": "2.111.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

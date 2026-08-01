@@ -26,6 +26,12 @@ importers:
 
   apps/extension:
     dependencies:
+      '@novah/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@supabase/supabase-js':
+        specifier: 2.111.0
+        version: 2.111.0
       react:
         specifier: ^19.2.4
         version: 19.2.8

@@ -901,17 +901,17 @@ feat: add note enrichment and semantic recall
 
 #### Checklist
 
-- [ ] 3.1 Configure Manifest V3, side-panel and minimal permissions.
-- [ ] 3.2 Implement extension authentication and session persistence.
-- [ ] 3.3 Register the **Save to Novah** selection context menu.
-- [ ] 3.4 Capture selection text, page title and page URL.
-- [ ] 3.5 Open or focus the side panel after the context-menu action.
-- [ ] 3.6 Build Capture and Recall tabs.
-- [ ] 3.7 Add personal context, note type, source fields and validation.
-- [ ] 3.8 Preserve failed capture drafts in extension storage.
-- [ ] 3.9 Add saving, success, retry, signed-out and empty states.
-- [ ] 3.10 Display ranked search matches and citation-linked synthesis.
-- [ ] 3.11 Test the production build as an unpacked extension.
+- [x] 3.1 Configure Manifest V3, side-panel and minimal permissions.
+- [x] 3.2 Implement extension authentication and session persistence.
+- [x] 3.3 Register the **Save to Novah** selection context menu.
+- [x] 3.4 Capture selection text, page title and page URL.
+- [x] 3.5 Open or focus the side panel after the context-menu action.
+- [x] 3.6 Build Capture and Recall tabs.
+- [x] 3.7 Add personal context, note type, source fields and validation.
+- [x] 3.8 Preserve failed capture drafts in extension storage.
+- [x] 3.9 Add saving, success, retry, signed-out and empty states.
+- [x] 3.10 Display ranked search matches and citation-linked synthesis.
+- [x] 3.11 Test the production build as an unpacked extension.
 
 #### Required extension permissions
 
@@ -1208,7 +1208,7 @@ chore: package chrome private beta
 | 0. Workspace | Complete | Items 0.1–0.11 complete; install, lint, type-check and both production builds pass; one lockfile exists; tracked secret-pattern scan is clean. | — |
 | 1. Data foundation | Complete | Both migrations are applied to Novah; local reset and schema lint pass; 30 pgTAP assertions pass; hosted password-auth CRUD, cross-user isolation, caller-scoped `match_notes`, anonymous denial, service-role table access and fixture cleanup pass; corrected generated types compile. | — |
 | 2. Capture and recall | Complete | Approved migration and both JWT-protected functions are active on Novah; 10 deterministic function tests, 42 pgTAP assertions, local/hosted schema lint, full type-check and hosted cases 1–6 pass; mocked OpenAI failure proves no partial note or review rows; hosted fixtures were removed. | — |
-| 3. Chrome extension | Not started | — | — |
+| 3. Chrome extension | Complete | Production build, type-check, lint, formatting, 9 unit tests, locked-manifest and secret scans pass; the stable-ID unpacked build loads in a disposable Chrome profile; the controlled browser matrix covers selection, PDF fallback, signed-out persistence, failure/retry, duplicate-click and recall states; an approved hosted capture proves extension-origin CORS plus exactly one note and five reviews, followed by fixture cleanup. | — |
 | 4. Telegram | Not started | — | — |
 | 5. Digest and reviews | Not started | — | — |
 | 6. Web dashboard | Not started | — | — |
@@ -1345,6 +1345,9 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-01 21:35 IST | 2.11 Deterministic verification | Function tests, database tests, quality gates | `pnpm test:functions` passed 10 tests; `pnpm db:test` passed all 42 assertions; local schema lint, recursive type-check including Edge Functions, lint, formatting and Edge bundle loading passed. | Complete: local and mocked evidence is separated from hosted endpoint evidence. |
 | 2026-08-01 21:35 IST | 2.12 Approved deployment | Phase 2 migration, `capture-note`, `search-notes`, hosted verifier | After explicit approvals, the migration reached parity on Novah, hosted schema lint passed, only `OPENAI_API_KEY` was set from the ignored environment, and both functions deployed active with `verify_jwt=true`; unauthenticated requests returned 401 before model access. | Complete: approved remote writes only; no credential value or authorization data recorded. |
 | 2026-08-01 21:35 IST | Phase 2 hosted gate | `capture-note`, `search-notes`, hosted verifier | The capped synthetic run used disposable authenticated users A and B and verified original preservation, separate metadata, five reviews, idempotency, paraphrase top-five retrieval, grounded citations, weak-result withholding and cross-user isolation; cleanup confirmed no fixture-owned rows remained. | Complete: all seven verification cases pass when the mocked failure case is combined with deployed cases 1–6; Phase 3 is next. |
+| 2026-08-01 23:40 IST | 3.1–3.5 Manifest, authentication and selection capture | Extension manifest, background worker, storage and Supabase client | The emitted Manifest V3 file contains only `contextMenus`, `sidePanel`, `storage`, `activeTab` and the exact Novah host; the stable unpacked ID loaded with its service worker; controlled browser checks covered signed-out draft persistence, extension-safe session persistence and selected text/title/URL transfer. | Complete: no broad host access or privileged client credential was introduced; selection-only registration and side-panel opening are active. |
+| 2026-08-01 23:40 IST | 3.6–3.10 Capture and Recall experience | Side-panel React application, shared API adapter, draft and citation helpers, extension tests | Nine deterministic tests and a production-browser matrix covered field validation, Chrome PDF/manual fallback, failed-draft retention, same-key retry, rapid duplicate submission, loading/success/signed-out/empty/error states, ranked matches, weak synthesis and citation-to-returned-note mapping. | Complete: calls authenticate against the deployed Phase 2 contracts and drafts remain local until a successful capture. |
+| 2026-08-01 23:40 IST | 3.11 and Phase 3 gate | Production Chrome build, runbook and test evidence | The production bundle loaded under stable ID `mgjpgplhhbhlakjiaikaniaadapgofjd`; manifest assertions and built-asset scans passed. After approval, Novah received the exact extension-origin allowlist; one disposable hosted journey proved sign-in, extension CORS, offline preservation, one-request retry, one owned note and five reviews. Phase 2 hosted recall evidence and the Phase 3 production-UI recall matrix cover natural-language ranked/citation behavior. | Complete: the disposable account, rows, local storage, verifier and Chrome profile were removed; only two of the approved maximum four model calls were used. Phase 4 is next. |
 
 ---
 

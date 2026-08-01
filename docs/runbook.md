@@ -58,8 +58,38 @@ explicit approval:
 pnpm exec supabase db push
 ```
 
-The web and extension development commands will be documented when their
-feature phases are implemented.
+### Chrome extension
+
+The extension reads the public Supabase URL and publishable key from the
+ignored root `.env`. It must not receive the service-role key or an OpenAI key.
+
+```bash
+pnpm --filter extension test
+pnpm --filter extension typecheck
+pnpm --filter extension build
+```
+
+The production build is written to
+`apps/extension/.output/chrome-mv3`. Load that directory through
+`chrome://extensions` with Developer mode enabled. The committed public
+manifest key produces extension ID `mgjpgplhhbhlakjiaikaniaadapgofjd` so the
+server can use an explicit CORS allowlist rather than a wildcard.
+
+Before hosted extension verification, confirm `ALLOWED_EXTENSION_IDS` contains
+that exact ID in the target Supabase project. Changing the hosted secret still
+requires explicit approval. After loading or reloading the unpacked build,
+select text on an ordinary article and use **Save to Novah**. Chrome should open
+the side panel with the exact selected text, page title and HTTP(S) URL. Chrome
+PDF or internal pages that do not expose a shareable URL show a manual URL
+fallback while preserving the selected text and title.
+
+Failed captures remain under the extension-local
+`novah-capture-drafts` storage key and reuse the same `clientRequestId` when
+retried. Supabase Auth uses the separate `novah-auth-session` key. Do not copy
+either storage value into logs or test evidence.
+
+The web development command will be documented when its feature phase is
+implemented.
 
 ## Environment and secrets
 
