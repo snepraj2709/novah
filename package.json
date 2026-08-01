@@ -2,6 +2,7 @@
   "name": "novah",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "db:start": "supabase start",
@@ -9,17 +10,22 @@
     "db:test": "supabase test db",
     "db:test:hosted": "node scripts/verify-phase-1-hosted.mjs",
     "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/types/database.generated.ts && prettier --write packages/shared/src/types/database.generated.ts",
+    "test:functions": "node --experimental-strip-types --test supabase/functions/tests/*.test.ts",
+    "test:functions:hosted": "node scripts/verify-phase-2-hosted.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "oxlint apps packages --deny-warnings",
-    "typecheck": "pnpm --recursive --if-present typecheck"
+    "lint": "oxlint apps packages supabase/functions --deny-warnings",
+    "typecheck": "pnpm --recursive --if-present typecheck && pnpm typecheck:functions",
+    "typecheck:functions": "tsc --project supabase/functions/tsconfig.json"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "2.111.0",
     "oxlint": "^1.76.0",
     "prettier": "^3.9.6",
-    "supabase": "^2.111.0"
+    "supabase": "^2.111.0",
+    "typescript": "~6.0.3"
   }
 }

@@ -249,6 +249,30 @@ export type Database = {
     };
     Functions: {
       are_normalized_tags: { Args: { input_tags: string[] }; Returns: boolean };
+      capture_note_atomic: {
+        Args: {
+          input_capture_channel: Database['public']['Enums']['capture_channel'];
+          input_client_request_id: string;
+          input_embedding: string;
+          input_note_type: Database['public']['Enums']['note_type'];
+          input_original_text: string;
+          input_personal_context: string;
+          input_recall_prompt: string;
+          input_source_title: string;
+          input_source_url: string;
+          input_summary: string;
+          input_tags: string[];
+        };
+        Returns: {
+          created: boolean;
+          first_review_date: string;
+          note_id: string;
+          stored_note_type: Database['public']['Enums']['note_type'];
+          stored_original_text: string;
+          stored_summary: string;
+          stored_tags: string[];
+        }[];
+      };
       is_http_url: { Args: { input_url: string }; Returns: boolean };
       is_valid_timezone: { Args: { timezone_name: string }; Returns: boolean };
       match_notes: {

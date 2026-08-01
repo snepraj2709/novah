@@ -857,18 +857,18 @@ feat: add secure knowledge and review schema
 
 #### Checklist
 
-- [ ] 2.1 Finalize shared capture and search Zod contracts.
-- [ ] 2.2 Create shared Edge Function helpers for CORS, authentication, errors and OpenAI calls.
-- [ ] 2.3 Implement `capture-note` input validation and authentication.
-- [ ] 2.4 Implement Structured Output enrichment.
-- [ ] 2.5 Generate the `text-embedding-3-small` embedding.
-- [ ] 2.6 Insert the note and five review events atomically or with compensating cleanup.
-- [ ] 2.7 Enforce capture idempotency.
-- [ ] 2.8 Implement `search-notes` query embedding and `match_notes` call.
-- [ ] 2.9 Implement grounded synthesis with numbered note citations.
-- [ ] 2.10 Withhold synthesis when retrieval is weak.
-- [ ] 2.11 Add unit tests for validation, enrichment parsing and citation mapping.
-- [ ] 2.12 Deploy both functions after Sneha approves the remote write.
+- [x] 2.1 Finalize shared capture and search Zod contracts.
+- [x] 2.2 Create shared Edge Function helpers for CORS, authentication, errors and OpenAI calls.
+- [x] 2.3 Implement `capture-note` input validation and authentication.
+- [x] 2.4 Implement Structured Output enrichment.
+- [x] 2.5 Generate the `text-embedding-3-small` embedding.
+- [x] 2.6 Insert the note and five review events atomically or with compensating cleanup.
+- [x] 2.7 Enforce capture idempotency.
+- [x] 2.8 Implement `search-notes` query embedding and `match_notes` call.
+- [x] 2.9 Implement grounded synthesis with numbered note citations.
+- [x] 2.10 Withhold synthesis when retrieval is weak.
+- [x] 2.11 Add unit tests for validation, enrichment parsing and citation mapping.
+- [x] 2.12 Deploy both functions after Sneha approves the remote write.
 
 #### Verification cases
 
@@ -1207,7 +1207,7 @@ chore: package chrome private beta
 | --- | --- | --- | --- |
 | 0. Workspace | Complete | Items 0.1–0.11 complete; install, lint, type-check and both production builds pass; one lockfile exists; tracked secret-pattern scan is clean. | — |
 | 1. Data foundation | Complete | Both migrations are applied to Novah; local reset and schema lint pass; 30 pgTAP assertions pass; hosted password-auth CRUD, cross-user isolation, caller-scoped `match_notes`, anonymous denial, service-role table access and fixture cleanup pass; corrected generated types compile. | — |
-| 2. Capture and recall | Not started | — | — |
+| 2. Capture and recall | Complete | Approved migration and both JWT-protected functions are active on Novah; 10 deterministic function tests, 42 pgTAP assertions, local/hosted schema lint, full type-check and hosted cases 1–6 pass; mocked OpenAI failure proves no partial note or review rows; hosted fixtures were removed. | — |
 | 3. Chrome extension | Not started | — | — |
 | 4. Telegram | Not started | — | — |
 | 5. Digest and reviews | Not started | — | — |
@@ -1339,6 +1339,12 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-01 16:48 IST | Phase 1 hosted gate | — | `supabase projects list` returned “Access token not provided”; no remote command was attempted. | Blocked at item 1.11 pending CLI authentication, project selection and explicit migration approval. |
 | 2026-08-01 20:11 IST | 1.11 Push approved migrations | Phase 1 migrations, `PRODUCT_PLAN.md` | After explicit approval, `supabase db push` applied `20260801195336_phase_1_security_fixes.sql` to Novah (`fqinppulljqefbvukcpg`); migration parity lists both local versions on the remote project and hosted schema lint reports no errors. | Complete: the initial foundation and forward security migration are hosted; no function deployment or Phase 2 work occurred. |
 | 2026-08-01 20:11 IST | Phase 1 review remediation and gate | Phase 1 migration, database tests, hosted verifier, generated type wrapper, runbook and test evidence | Clean local reset, 30 pgTAP assertions, local and hosted schema lint, recursive TypeScript checks and the hosted Auth/REST verifier passed. Hosted checks covered password sign-in, profile trigger, owned CRUD, cross-user zero-row isolation, caller-scoped `match_notes`, anonymous denial, all service-role tables and complete fixture cleanup. | Complete: all four review findings are closed and the Phase 1 gate passes without weakening RLS or retaining test data. |
+| 2026-08-01 21:35 IST | 2.1–2.5 Contracts and AI capture pipeline | Shared contracts, Edge Function helpers, `capture-note` | TypeScript and deterministic mocked tests validate strict requests, normalization, user-selected note type precedence, separate structured metadata, `store: false`, supported JSON Schema and 1,536-dimension embeddings. | Complete: capture validates and authenticates before model or database work; privileged credentials remain server-side. |
+| 2026-08-01 21:35 IST | 2.6–2.7 Atomic capture and idempotency | Phase 2 migration, pgTAP tests, generated database types | Clean local reset and 12 Phase 2 pgTAP assertions prove one note plus exactly five reviews at days 1, 2, 3, 7 and 21, same-ID retry reuse, anonymous denial, user isolation and transaction rollback on synthetic review failure. | Complete locally and hosted: retry returned the original note and one stored row; no partial rows remain on mocked AI/database failure. |
+| 2026-08-01 21:35 IST | 2.8–2.10 Semantic recall and grounding | `search-notes`, caller-scoped `match_notes`, citation mapper | Mocked tests prove weak retrieval and invalid citations withhold synthesis; hosted paraphrase returned the expected note in the top five, all citations referenced returned note IDs, unrelated retrieval withheld synthesis and user B received no user A match. | Complete: retrieval identity comes only from the authenticated caller and synthesis receives only returned notes. |
+| 2026-08-01 21:35 IST | 2.11 Deterministic verification | Function tests, database tests, quality gates | `pnpm test:functions` passed 10 tests; `pnpm db:test` passed all 42 assertions; local schema lint, recursive type-check including Edge Functions, lint, formatting and Edge bundle loading passed. | Complete: local and mocked evidence is separated from hosted endpoint evidence. |
+| 2026-08-01 21:35 IST | 2.12 Approved deployment | Phase 2 migration, `capture-note`, `search-notes`, hosted verifier | After explicit approvals, the migration reached parity on Novah, hosted schema lint passed, only `OPENAI_API_KEY` was set from the ignored environment, and both functions deployed active with `verify_jwt=true`; unauthenticated requests returned 401 before model access. | Complete: approved remote writes only; no credential value or authorization data recorded. |
+| 2026-08-01 21:35 IST | Phase 2 hosted gate | `capture-note`, `search-notes`, hosted verifier | The capped synthetic run used disposable authenticated users A and B and verified original preservation, separate metadata, five reviews, idempotency, paraphrase top-five retrieval, grounded citations, weak-result withholding and cross-user isolation; cleanup confirmed no fixture-owned rows remained. | Complete: all seven verification cases pass when the mocked failure case is combined with deployed cases 1–6; Phase 3 is next. |
 
 ---
 
