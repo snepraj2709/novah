@@ -3,7 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint apps packages --deny-warnings",
+    "typecheck": "pnpm --recursive --if-present typecheck"
+  },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "oxlint": "^1.76.0",
+    "prettier": "^3.9.6"
   }
 }
