@@ -777,7 +777,7 @@ The time boxes are limits, not invitations to expand the phase. If a phase gate 
 - [x] 0.8 Create `packages/shared` with exported constants and placeholder Zod schemas.
 - [x] 0.9 Add root formatting, linting and type-check commands.
 - [x] 0.10 Add `.env.example` and confirm real `.env` files are ignored.
-- [ ] 0.11 Add `docs/runbook.md` and `docs/test-evidence.md` placeholders.
+- [x] 0.11 Add `docs/runbook.md` and `docs/test-evidence.md` placeholders.
 
 #### Verification
 
@@ -1205,7 +1205,7 @@ chore: package chrome private beta
 
 | Phase | Status | Gate evidence | Blocker |
 | --- | --- | --- | --- |
-| 0. Workspace | Not started | — | — |
+| 0. Workspace | Complete | Items 0.1–0.11 complete; install, lint, type-check and both production builds pass; one lockfile exists; tracked secret-pattern scan is clean. | — |
 | 1. Data foundation | Not started | — | — |
 | 2. Capture and recall | Not started | — | — |
 | 3. Chrome extension | Not started | — | — |
@@ -1324,6 +1324,7 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-01 15:24 IST | 0.8 Create `packages/shared` with exported constants and placeholder Zod schemas | `packages/shared/**`, `.gitignore`, `pnpm-lock.yaml`, `PRODUCT_PLAN.md` | Created `@novah/shared` exports for constants, contracts and types; locked note, channel, review and schedule values are exported; placeholder capture/search schemas use Zod `4.4.3`; `pnpm --filter @novah/shared typecheck` and runtime schema checks passed; one lockfile remains. | Complete: shared package is typed and runtime-valid; root formatting, linting and type-check orchestration remain deferred to item 0.9. |
 | 2026-08-01 15:36 IST | 0.9 Add root formatting, linting and type-check commands | `.oxlintrc.json`, `.prettierignore`, `.prettierrc.json`, package manifests, formatted web sources, `pnpm-lock.yaml`, `PRODUCT_PLAN.md` | Added Prettier `3.9.6`, Oxlint `1.76.0` and root `format`, `format:check`, `lint`, `typecheck` scripts; `pnpm format:check`, `pnpm lint` with warnings denied and recursive `pnpm typecheck` across web, extension and shared all passed. | Complete: root quality gates are operational; environment examples and ignore rules remain deferred to item 0.10. |
 | 2026-08-01 15:41 IST | 0.10 Add `.env.example` and confirm real `.env` files are ignored | `.env.example`, `.gitignore`, `PRODUCT_PLAN.md` | Added exactly the eight locked variable names with empty values; verified root and nested `.env` variants are ignored, `.env.example` paths remain trackable, no real environment filename is tracked and all root quality gates pass. | Complete: environment template and secret-file safeguards are in place; no secret values were created, read or recorded. |
+| 2026-08-01 16:17 IST | 0.11 Add `docs/runbook.md` and `docs/test-evidence.md` placeholders | `docs/runbook.md`, `docs/test-evidence.md`, `PRODUCT_PLAN.md` | Created both documentation placeholders with explicit future evidence boundaries; `pnpm install --frozen-lockfile`, formatting, lint, type-check and both production builds passed; exactly one lockfile exists; `.env` is ignored and the tracked secret-pattern scan returned no matches. | Complete: item 0.11 and the Phase 0 gate are verified; no secret values, deployment actions or Phase 1 work were introduced. |
 
 ---
 
