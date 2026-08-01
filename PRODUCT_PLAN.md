@@ -772,7 +772,7 @@ The time boxes are limits, not invitations to expand the phase. If a phase gate 
 - [x] 0.3 Confirm Node.js 20 or later and `pnpm` availability.
 - [x] 0.4 Create the locked repository structure without duplicating existing applications.
 - [x] 0.5 Configure the root `pnpm` workspace.
-- [ ] 0.6 Scaffold `apps/web` with React, TypeScript and Vite.
+- [x] 0.6 Scaffold `apps/web` with React, TypeScript and Vite.
 - [ ] 0.7 Scaffold `apps/extension` with WXT, React and TypeScript.
 - [ ] 0.8 Create `packages/shared` with exported constants and placeholder Zod schemas.
 - [ ] 0.9 Add root formatting, linting and type-check commands.
@@ -1319,6 +1319,7 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-01 14:43 IST | 0.3 Confirm Node.js 20 or later and `pnpm` availability | `PRODUCT_PLAN.md` | `node --version` returned `v22.23.1`, the explicit Node-major check returned `true`, and `pnpm --version` returned `10.33.2`; both executables were found and all commands exited successfully. | Complete: required Node.js and pnpm tooling is available; no installation or workspace setup performed. |
 | 2026-08-01 14:47 IST | 0.4 Create the locked repository structure without duplicating existing applications | `PRODUCT_PLAN.md` | Confirmed no application directories existed, then created the locked empty directory groups under `apps`, `packages/shared`, `supabase` and `docs`; verified every required directory exists and contains no scaffold or placeholder files. | Complete: directory skeleton created without duplicating applications; no package installation, scaffolding or external action performed. |
 | 2026-08-01 14:49 IST | 0.5 Configure the root `pnpm` workspace | `package.json`, `pnpm-workspace.yaml`, `PRODUCT_PLAN.md` | Parsed the private root manifest successfully; `pnpm list --recursive --depth -1` recognized `novah@0.0.0`; workspace globs cover `apps/*` and `packages/*`; `pnpm-lock.yaml` remains absent. | Complete: root pnpm workspace configured without installing packages or starting application scaffolds. |
+| 2026-08-01 15:03 IST | 0.6 Scaffold `apps/web` with React, TypeScript and Vite | `apps/web/**`, `.gitignore`, `pnpm-lock.yaml`, `PRODUCT_PLAN.md` | Official Vite scaffold created `web@0.0.0` with React `19.2.8`, TypeScript `6.0.2` and Vite `8.2.0`; Tailwind `4.3.3` compiles through `@tailwindcss/vite`; `pnpm --filter web lint` and `pnpm --filter web build` passed; exactly one lockfile exists. | Complete: web scaffold builds successfully; extension, shared package, Supabase and docs remain untouched. |
 
 ---
 
