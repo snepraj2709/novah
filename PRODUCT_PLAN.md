@@ -815,18 +815,18 @@ Sneha creates or selects the Supabase project and authenticates the Supabase Com
 
 #### Checklist
 
-- [ ] 1.1 Initialize the `supabase` directory if it does not exist.
-- [ ] 1.2 Create the extension-enabling migration.
-- [ ] 1.3 Create enums or checked text fields for note, channel and review statuses.
-- [ ] 1.4 Create `profiles`, `notes`, `review_events`, `daily_digests`, `telegram_link_codes` and `processed_telegram_updates`.
-- [ ] 1.5 Add foreign keys, cascades, unique constraints and indexes.
-- [ ] 1.6 Create the automatic profile-on-sign-up trigger.
-- [ ] 1.7 Enable Row Level Security and add ownership policies.
-- [ ] 1.8 Create `match_notes` with caller-derived identity.
-- [ ] 1.9 Add capture idempotency using `(user_id, client_request_id)`.
-- [ ] 1.10 Add minimal seed data for a dedicated test user without committing credentials.
-- [ ] 1.11 Push the migration to the selected project after Sneha approves the remote write.
-- [ ] 1.12 Generate TypeScript database types and place them in `packages/shared`.
+- [x] 1.1 Initialize the `supabase` directory if it does not exist.
+- [x] 1.2 Create the extension-enabling migration.
+- [x] 1.3 Create enums or checked text fields for note, channel and review statuses.
+- [x] 1.4 Create `profiles`, `notes`, `review_events`, `daily_digests`, `telegram_link_codes` and `processed_telegram_updates`.
+- [x] 1.5 Add foreign keys, cascades, unique constraints and indexes.
+- [x] 1.6 Create the automatic profile-on-sign-up trigger.
+- [x] 1.7 Enable Row Level Security and add ownership policies.
+- [x] 1.8 Create `match_notes` with caller-derived identity.
+- [x] 1.9 Add capture idempotency using `(user_id, client_request_id)`.
+- [x] 1.10 Add minimal seed data for a dedicated test user without committing credentials.
+- [x] 1.11 Push the migration to the selected project after Sneha approves the remote write.
+- [x] 1.12 Generate TypeScript database types and place them in `packages/shared`.
 
 #### Verification
 
@@ -1206,7 +1206,7 @@ chore: package chrome private beta
 | Phase | Status | Gate evidence | Blocker |
 | --- | --- | --- | --- |
 | 0. Workspace | Complete | Items 0.1–0.11 complete; install, lint, type-check and both production builds pass; one lockfile exists; tracked secret-pattern scan is clean. | — |
-| 1. Data foundation | Not started | — | — |
+| 1. Data foundation | Complete | Both migrations are applied to Novah; local reset and schema lint pass; 30 pgTAP assertions pass; hosted password-auth CRUD, cross-user isolation, caller-scoped `match_notes`, anonymous denial, service-role table access and fixture cleanup pass; corrected generated types compile. | — |
 | 2. Capture and recall | Not started | — | — |
 | 3. Chrome extension | Not started | — | — |
 | 4. Telegram | Not started | — | — |
@@ -1325,6 +1325,20 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-01 15:36 IST | 0.9 Add root formatting, linting and type-check commands | `.oxlintrc.json`, `.prettierignore`, `.prettierrc.json`, package manifests, formatted web sources, `pnpm-lock.yaml`, `PRODUCT_PLAN.md` | Added Prettier `3.9.6`, Oxlint `1.76.0` and root `format`, `format:check`, `lint`, `typecheck` scripts; `pnpm format:check`, `pnpm lint` with warnings denied and recursive `pnpm typecheck` across web, extension and shared all passed. | Complete: root quality gates are operational; environment examples and ignore rules remain deferred to item 0.10. |
 | 2026-08-01 15:41 IST | 0.10 Add `.env.example` and confirm real `.env` files are ignored | `.env.example`, `.gitignore`, `PRODUCT_PLAN.md` | Added exactly the eight locked variable names with empty values; verified root and nested `.env` variants are ignored, `.env.example` paths remain trackable, no real environment filename is tracked and all root quality gates pass. | Complete: environment template and secret-file safeguards are in place; no secret values were created, read or recorded. |
 | 2026-08-01 16:17 IST | 0.11 Add `docs/runbook.md` and `docs/test-evidence.md` placeholders | `docs/runbook.md`, `docs/test-evidence.md`, `PRODUCT_PLAN.md` | Created both documentation placeholders with explicit future evidence boundaries; `pnpm install --frozen-lockfile`, formatting, lint, type-check and both production builds passed; exactly one lockfile exists; `.env` is ignored and the tracked secret-pattern scan returned no matches. | Complete: item 0.11 and the Phase 0 gate are verified; no secret values, deployment actions or Phase 1 work were introduced. |
+| 2026-08-01 16:48 IST | 1.1 Initialize Supabase | `supabase/config.toml`, `supabase/.gitignore`, root package files | Workspace-local Supabase CLI 2.111.0 initialized the existing directory in place; local stack started successfully. | Complete locally; no hosted project linked or changed. |
+| 2026-08-01 16:48 IST | 1.2 Enable required extensions | Phase 1 migration | Clean local reset enabled `vector`, `pg_cron` and `pg_net`; schema lint returned no errors. | Complete locally; hosted compatibility remains unverified. |
+| 2026-08-01 16:48 IST | 1.3 Create status types | Phase 1 migration | Generated database types contain the locked note, capture-channel and review-status enums. | Complete. |
+| 2026-08-01 16:48 IST | 1.4 Create Phase 1 tables | Phase 1 migration | Clean local reset created all six required tables; pgTAP confirmed RLS is enabled on each. | Complete locally. |
+| 2026-08-01 16:48 IST | 1.5 Add relational integrity | Phase 1 migration | Migration replayed foreign keys, owned-note cascade, uniqueness and query indexes without schema-lint findings. | Complete locally; HNSW intentionally deferred until sequential search correctness. |
+| 2026-08-01 16:48 IST | 1.6 Add signup profile trigger | Phase 1 migration | Credential-free seed inserted two Auth identities and pgTAP confirmed two profiles were created automatically. | Complete locally. |
+| 2026-08-01 16:48 IST | 1.7 Add RLS policies | Phase 1 migration, database tests | 22 pgTAP assertions and authenticated local REST checks proved owned CRUD, cross-user zero-row behavior, server-only update isolation and anonymous denial. | Complete locally; hosted isolation gate remains pending. |
+| 2026-08-01 16:48 IST | 1.8 Add caller-scoped vector search | Phase 1 migration, database tests | `match_notes` accepts no user ID, derives `auth.uid()`, caps results at 20 and returned only the active test user's embedded fixture. | Complete locally; hosted RPC verification remains pending. |
+| 2026-08-01 16:48 IST | 1.9 Add capture idempotency | Phase 1 migration, database tests | Duplicate `(user_id, client_request_id)` insert raised the expected unique-constraint violation. | Complete locally. |
+| 2026-08-01 16:48 IST | 1.10 Add safe seed data | `supabase/seed.sql` | Clean reset loaded two synthetic, non-login Auth identities and isolated notes; no password, token or production data is present. | Complete. |
+| 2026-08-01 16:48 IST | 1.12 Generate database types | `packages/shared/src/types/database.ts`, type exports | Supabase generated TypeScript types from the verified local schema; root recursive type-check passed. | Complete locally. |
+| 2026-08-01 16:48 IST | Phase 1 hosted gate | — | `supabase projects list` returned “Access token not provided”; no remote command was attempted. | Blocked at item 1.11 pending CLI authentication, project selection and explicit migration approval. |
+| 2026-08-01 20:11 IST | 1.11 Push approved migrations | Phase 1 migrations, `PRODUCT_PLAN.md` | After explicit approval, `supabase db push` applied `20260801195336_phase_1_security_fixes.sql` to Novah (`fqinppulljqefbvukcpg`); migration parity lists both local versions on the remote project and hosted schema lint reports no errors. | Complete: the initial foundation and forward security migration are hosted; no function deployment or Phase 2 work occurred. |
+| 2026-08-01 20:11 IST | Phase 1 review remediation and gate | Phase 1 migration, database tests, hosted verifier, generated type wrapper, runbook and test evidence | Clean local reset, 30 pgTAP assertions, local and hosted schema lint, recursive TypeScript checks and the hosted Auth/REST verifier passed. Hosted checks covered password sign-in, profile trigger, owned CRUD, cross-user zero-row isolation, caller-scoped `match_notes`, anonymous denial, all service-role tables and complete fixture cleanup. | Complete: all four review findings are closed and the Phase 1 gate passes without weakening RLS or retaining test data. |
 
 ---
 

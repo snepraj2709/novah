@@ -4,5 +4,6 @@ pnpm-lock.yaml
 **/dist/**
 **/.output/**
 **/.wxt/**
+**/.temp/**
 **/public/**
 **/assets/**

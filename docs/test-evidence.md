@@ -1,6 +1,6 @@
 # Novah Test Evidence
 
-> Status: Placeholder created during Phase 0. Evidence will be added only after the corresponding checks have run.
+> Status: Phase 1 local and hosted evidence recorded.
 
 ## Recording rules
 
@@ -10,6 +10,9 @@
 
 ## Evidence log
 
-| Date | Phase or item | Scope | Verification | Result                                   |
-| ---- | ------------- | ----- | ------------ | ---------------------------------------- |
-| —    | —             | —     | —            | No implementation evidence recorded yet. |
+| Date       | Phase or item            | Scope                        | Verification                                                                                                                                                                                                                       | Result                                                                                                                                                                                                                                            |
+| ---------- | ------------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| —          | —                        | —                            | —                                                                                                                                                                                                                                  | No implementation evidence recorded yet.                                                                                                                                                                                                          |
+| 2026-08-01 | Phase 1 local foundation | Local Supabase PostgreSQL 17 | Clean `supabase db reset --local`; `supabase db lint --local --schema public --level warning --fail-on warning`; 22 pgTAP assertions; authenticated REST CRUD and isolation with two temporary local users; anonymous REST request | Pass: migration and credential-free seed replayed; schema lint found no errors; user A CRUD, user B isolation, caller-scoped vector search and anonymous denial passed. Hosted project remains unverified.                                        |
+| 2026-08-01 | Phase 1 final local gate | Local Supabase PostgreSQL 17 | Clean `supabase db reset --local`; 30 pgTAP assertions; schema lint with warnings treated as failures; generated-type regeneration; recursive TypeScript type-check                                                                | Pass: both migrations replay from scratch; RLS, constraints, ownership, helper ACLs, service-role grants, idempotency and caller-scoped search pass; corrected nullable RPC fields compile.                                                       |
+| 2026-08-01 | Phase 1 hosted gate      | Supabase project Novah       | Migration parity and hosted schema lint; disposable password-auth users A and B; hosted REST CRUD, cross-user reads, `match_notes`, anonymous requests, service-role workflow tables and post-test cleanup                         | Pass: both migration versions are hosted; schema lint is clean; all isolation and ACL behaviors pass; temporary Auth users and synthetic rows were removed. No note content, identifier, password, token or authorization value is retained here. |
