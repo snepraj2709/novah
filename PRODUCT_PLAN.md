@@ -767,11 +767,11 @@ The time boxes are limits, not invitations to expand the phase. If a phase gate 
 
 #### Checklist
 
-- [ ] 0.1 Inspect the repository, current branch, existing files and uncommitted changes.
-- [ ] 0.2 Record existing-code conflicts under Decisions and Deviations.
-- [ ] 0.3 Confirm Node.js 20 or later and `pnpm` availability.
-- [ ] 0.4 Create the locked repository structure without duplicating existing applications.
-- [ ] 0.5 Configure the root `pnpm` workspace.
+- [x] 0.1 Inspect the repository, current branch, existing files and uncommitted changes.
+- [x] 0.2 Record existing-code conflicts under Decisions and Deviations.
+- [x] 0.3 Confirm Node.js 20 or later and `pnpm` availability.
+- [x] 0.4 Create the locked repository structure without duplicating existing applications.
+- [x] 0.5 Configure the root `pnpm` workspace.
 - [ ] 0.6 Scaffold `apps/web` with React, TypeScript and Vite.
 - [ ] 0.7 Scaffold `apps/extension` with WXT, React and TypeScript.
 - [ ] 0.8 Create `packages/shared` with exported constants and placeholder Zod schemas.
@@ -1303,6 +1303,7 @@ Add only approved changes here.
 | Date | Decision or deviation | Evidence | Approved by | Consequence |
 | --- | --- | --- | --- | --- |
 | — | — | — | — | — |
+| 2026-08-01 | Resolved workspace conflict, not a product deviation: Item 0.2 verification found Git root `/Users/snehaprajapati/Downloads/novah`, branch `main`, initial commit `d3c5fc0` and no configured remote. | Sneha — documentation only | The repository-boundary blocker is resolved. Item 0.2 makes no Git configuration or scaffolding changes; remote setup remains outside this item. |
 
 ---
 
@@ -1313,6 +1314,11 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | Timestamp | Item | Files changed | Verification evidence | Result or blocker |
 | --- | --- | --- | --- | --- |
 | — | — | — | — | — |
+| 2026-08-01 14:33 IST | 0.2 Record existing-code conflicts | `PRODUCT_PLAN.md` | Recorded the item 0.1 parent-repository conflict and verified its pre-existing resolution: current Git root is `novah`, branch is `main`, initial commit is `d3c5fc0` and no remote is configured. | Complete: resolved workspace conflict documented; no Git configuration, scaffolding or other implementation performed. |
+| 2026-08-01 14:40 IST | 0.1 Inspect the repository, current branch, existing files and uncommitted changes | `PRODUCT_PLAN.md` | Confirmed independent Git root `/Users/snehaprajapati/Downloads/novah`, branch `main`, initial commit `d3c5fc0`, no configured remote and only `PRODUCT_PLAN.md` in the workspace; the prior 0.2 update was staged with no unstaged changes before 0.1. | Complete: current repository state documented; no Git configuration, staging, installation, scaffolding or item 0.3 work performed. |
+| 2026-08-01 14:43 IST | 0.3 Confirm Node.js 20 or later and `pnpm` availability | `PRODUCT_PLAN.md` | `node --version` returned `v22.23.1`, the explicit Node-major check returned `true`, and `pnpm --version` returned `10.33.2`; both executables were found and all commands exited successfully. | Complete: required Node.js and pnpm tooling is available; no installation or workspace setup performed. |
+| 2026-08-01 14:47 IST | 0.4 Create the locked repository structure without duplicating existing applications | `PRODUCT_PLAN.md` | Confirmed no application directories existed, then created the locked empty directory groups under `apps`, `packages/shared`, `supabase` and `docs`; verified every required directory exists and contains no scaffold or placeholder files. | Complete: directory skeleton created without duplicating applications; no package installation, scaffolding or external action performed. |
+| 2026-08-01 14:49 IST | 0.5 Configure the root `pnpm` workspace | `package.json`, `pnpm-workspace.yaml`, `PRODUCT_PLAN.md` | Parsed the private root manifest successfully; `pnpm list --recursive --depth -1` recognized `novah@0.0.0`; workspace globs cover `apps/*` and `packages/*`; `pnpm-lock.yaml` remains absent. | Complete: root pnpm workspace configured without installing packages or starting application scaffolds. |
 
 ---
 
