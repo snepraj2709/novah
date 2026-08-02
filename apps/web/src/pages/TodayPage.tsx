@@ -103,13 +103,12 @@ export function TodayPage({ userId }: { userId: string }) {
                   className="digest-block"
                   key={`${theme.title}-${theme.noteIds.join('-')}`}
                 >
-                  <span>Recurring theme</span>
                   <p>{theme.title}</p>
                 </div>
               ))}
               {data.digest.connection && (
                 <div className="digest-block accent-block">
-                  <span>A useful connection</span>
+                  <span>Useful connection</span>
                   <p>{data.digest.connection.text}</p>
                 </div>
               )}
