@@ -165,6 +165,35 @@ export const telegramLinkCodeResponseSchema = z
   })
   .strict();
 
+export const digestThemeSchema = z
+  .object({
+    title: nonBlankString(200),
+    noteIds: z
+      .array(z.string().uuid())
+      .min(2)
+      .refine((noteIds) => new Set(noteIds).size === noteIds.length),
+  })
+  .strict();
+
+export const dailyDigestSchema = z
+  .object({
+    captureCount: z.number().int().positive(),
+    sourceCount: z.number().int().nonnegative(),
+    themes: z.array(digestThemeSchema).max(3),
+    connection: z
+      .object({
+        text: nonBlankString(500),
+        noteIds: z
+          .array(z.string().uuid())
+          .min(2)
+          .refine((noteIds) => new Set(noteIds).size === noteIds.length),
+      })
+      .strict()
+      .nullable(),
+    reflectionQuestion: nonBlankString(500),
+  })
+  .strict();
+
 export type CaptureNoteRequest = z.infer<typeof captureNoteRequestSchema>;
 export type CaptureNoteResponse = z.infer<typeof captureNoteResponseSchema>;
 export type Enrichment = z.infer<typeof enrichmentSchema>;
@@ -177,3 +206,4 @@ export type TelegramLinkCodeRequest = z.infer<
 export type TelegramLinkCodeResponse = z.infer<
   typeof telegramLinkCodeResponseSchema
 >;
+export type DailyDigest = z.infer<typeof dailyDigestSchema>;

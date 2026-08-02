@@ -1,5 +1,8 @@
 import { ApiError } from './errors.ts';
-import type { TelegramGateway } from './telegram-types.ts';
+import type {
+  TelegramGateway,
+  TelegramMessageOptions,
+} from './telegram-types.ts';
 
 type Fetch = typeof fetch;
 
@@ -51,11 +54,37 @@ export class TelegramApiClient implements TelegramGateway {
     }
   }
 
-  async sendMessage(chatId: number, text: string): Promise<void> {
+  async sendMessage(
+    chatId: number,
+    text: string,
+    options?: TelegramMessageOptions,
+  ): Promise<void> {
     await this.call('sendMessage', {
       chat_id: chatId,
       text,
       link_preview_options: { is_disabled: true },
+      ...(options?.inlineKeyboard
+        ? {
+            reply_markup: {
+              inline_keyboard: options.inlineKeyboard.map((row) =>
+                row.map((button) => ({
+                  text: button.text,
+                  callback_data: button.callbackData,
+                })),
+              ),
+            },
+          }
+        : {}),
+    });
+  }
+
+  async answerCallbackQuery(
+    callbackQueryId: string,
+    text?: string,
+  ): Promise<void> {
+    await this.call('answerCallbackQuery', {
+      callback_query_id: callbackQueryId,
+      ...(text ? { text } : {}),
     });
   }
 

@@ -24,6 +24,14 @@ export interface TelegramMessage {
 export interface TelegramUpdate {
   updateId: number;
   message?: TelegramMessage;
+  callbackQuery?: TelegramCallbackQuery;
+}
+
+export interface TelegramCallbackQuery {
+  id: string;
+  chatId: number;
+  chatType: string;
+  data: string;
 }
 
 export interface TelegramTodayNote {
@@ -32,8 +40,14 @@ export interface TelegramTodayNote {
 }
 
 export interface TelegramDueReview {
+  eventId: string;
   stage: number;
   recallPrompt: string;
+  sourceTitle: string | null;
+}
+
+export interface TelegramReviewReveal {
+  originalText: string;
   sourceTitle: string | null;
 }
 
@@ -50,6 +64,15 @@ export interface TelegramRepository {
   todayNotes(userId: string): Promise<TelegramTodayNote[]>;
   dueReviews(userId: string): Promise<TelegramDueReview[]>;
   settings(userId: string): Promise<TelegramSettings>;
+  revealReview(
+    userId: string,
+    eventId: string,
+  ): Promise<TelegramReviewReveal | null>;
+  recordReviewFeedback(
+    userId: string,
+    eventId: string,
+    status: 'remembered' | 'partial' | 'missed' | 'skipped',
+  ): Promise<boolean>;
 }
 
 export interface TelegramKnowledgeService {
@@ -64,8 +87,17 @@ export interface TelegramKnowledgeService {
 }
 
 export interface TelegramGateway {
-  sendMessage(chatId: number, text: string): Promise<void>;
+  sendMessage(
+    chatId: number,
+    text: string,
+    options?: TelegramMessageOptions,
+  ): Promise<void>;
+  answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void>;
   downloadVoice(fileId: string, maximumBytes: number): Promise<Uint8Array>;
+}
+
+export interface TelegramMessageOptions {
+  inlineKeyboard?: Array<Array<{ text: string; callbackData: string }>>;
 }
 
 export interface VoiceTranscriber {

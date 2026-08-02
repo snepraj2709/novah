@@ -161,6 +161,7 @@ export type Database = {
         Row: {
           answered_at: string | null;
           created_at: string;
+          delivery_claimed_at: string | null;
           due_on: string;
           id: string;
           note_id: string;
@@ -172,6 +173,7 @@ export type Database = {
         Insert: {
           answered_at?: string | null;
           created_at?: string;
+          delivery_claimed_at?: string | null;
           due_on: string;
           id?: string;
           note_id: string;
@@ -183,6 +185,7 @@ export type Database = {
         Update: {
           answered_at?: string | null;
           created_at?: string;
+          delivery_claimed_at?: string | null;
           due_on?: string;
           id?: string;
           note_id?: string;
@@ -298,6 +301,33 @@ export type Database = {
           stored_tags: string[];
         }[];
       };
+      claim_daily_digest: {
+        Args: {
+          input_content: Json;
+          input_digest_date: string;
+          input_note_ids: string[];
+          input_user_id: string;
+        };
+        Returns: string;
+      };
+      claim_due_reviews: {
+        Args: {
+          input_claimed_at?: string;
+          input_local_date: string;
+          input_user_id: string;
+        };
+        Returns: {
+          event_id: string;
+          note_id: string;
+          recall_prompt: string;
+          source_title: string;
+          stage: number;
+        }[];
+      };
+      configure_notification_cron: {
+        Args: { input_cron_secret: string };
+        Returns: number;
+      };
       consume_telegram_link_code: {
         Args: { input_chat_id: number; input_code_hash: string };
         Returns: string;
@@ -311,6 +341,14 @@ export type Database = {
       };
       is_http_url: { Args: { input_url: string }; Returns: boolean };
       is_valid_timezone: { Args: { timezone_name: string }; Returns: boolean };
+      mark_daily_digest_sent: {
+        Args: { input_digest_id: string; input_sent_at?: string };
+        Returns: boolean;
+      };
+      mark_review_packet_sent: {
+        Args: { input_event_ids: string[]; input_sent_at?: string };
+        Returns: number;
+      };
       match_notes: {
         Args: { match_count?: number; query_embedding: string };
         Returns: {
@@ -348,6 +386,53 @@ export type Database = {
         }[];
       };
       normalize_whitespace: { Args: { input_text: string }; Returns: string };
+      notification_cron_last_run: {
+        Args: never;
+        Returns: {
+          ended_at: string;
+          run_id: number;
+          started_at: string;
+          status: string;
+        }[];
+      };
+      notification_cron_status: {
+        Args: never;
+        Returns: {
+          active: boolean;
+          job_id: number;
+          schedule: string;
+          secret_exposed: boolean;
+        }[];
+      };
+      notification_digest_notes: {
+        Args: { input_digest_date: string; input_user_id: string };
+        Returns: {
+          note_id: string;
+          original_text: string;
+          personal_context: string;
+          recall_prompt: string;
+          source_title: string;
+          source_url: string;
+          summary: string;
+        }[];
+      };
+      record_review_feedback_for_user: {
+        Args: {
+          input_answered_at?: string;
+          input_event_id: string;
+          input_status: Database['public']['Enums']['review_status'];
+          input_user_id: string;
+        };
+        Returns: boolean;
+      };
+      remove_notification_cron: { Args: never; Returns: boolean };
+      reveal_review_for_user: {
+        Args: { input_event_id: string; input_user_id: string };
+        Returns: {
+          original_text: string;
+          source_title: string;
+        }[];
+      };
     };
     Enums: {
       capture_channel: 'extension' | 'web' | 'telegram_text' | 'telegram_voice';

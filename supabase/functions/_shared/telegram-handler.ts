@@ -8,11 +8,14 @@ import { ApiError, errorResponse } from './errors.ts';
 import { parseJson } from './http.ts';
 import { parseTelegramUpdate } from './telegram-contracts.ts';
 import { hashTelegramLinkCode } from './telegram-link-handler.ts';
+import { parseReviewCallback, reviewCallbackData } from './review-callbacks.ts';
 import type {
+  TelegramCallbackQuery,
   TelegramDueReview,
   TelegramGateway,
   TelegramKnowledgeService,
   TelegramMessage,
+  TelegramMessageOptions,
   TelegramRepository,
   TelegramSettings,
   TelegramTodayNote,
@@ -93,8 +96,6 @@ function reviewMessage(reviews: TelegramDueReview[]): string {
       const source = review.sourceTitle ? ` — ${review.sourceTitle}` : '';
       return `${index + 1}. Stage ${review.stage}${source}\n${review.recallPrompt}`;
     }),
-    '',
-    'Feedback actions arrive with the grouped review packet in Phase 5.',
   ].join('\n');
 }
 
@@ -179,8 +180,84 @@ async function send(
   telegram: TelegramGateway,
   chatId: number,
   text: string,
+  options?: TelegramMessageOptions,
 ): Promise<void> {
-  await telegram.sendMessage(chatId, boundedMessage(text));
+  await telegram.sendMessage(chatId, boundedMessage(text), options);
+}
+
+async function dispatchCallback(
+  callback: TelegramCallbackQuery,
+  dependencies: TelegramWebhookDependencies,
+): Promise<void> {
+  if (callback.chatType !== 'private' || callback.chatId <= 0) return;
+  const parsed = parseReviewCallback(callback.data);
+  const userId = await dependencies.repository.userIdForChat(callback.chatId);
+  if (!parsed || !userId) {
+    await dependencies.telegram.answerCallbackQuery(
+      callback.id,
+      'This review action is unavailable.',
+    );
+    return;
+  }
+
+  if (parsed.action === 'reveal') {
+    const revealed = await dependencies.repository.revealReview(
+      userId,
+      parsed.eventId,
+    );
+    if (!revealed) {
+      await dependencies.telegram.answerCallbackQuery(
+        callback.id,
+        'This review is no longer active.',
+      );
+      return;
+    }
+    await send(
+      dependencies.telegram,
+      callback.chatId,
+      [
+        revealed.sourceTitle ? `Source: ${revealed.sourceTitle}` : 'Saved note',
+        '',
+        revealed.originalText,
+        '',
+        'How well did you remember it?',
+      ].join('\n'),
+      {
+        inlineKeyboard: [
+          [
+            {
+              text: 'Remembered',
+              callbackData: reviewCallbackData(parsed.eventId, 'remembered'),
+            },
+            {
+              text: 'Partly',
+              callbackData: reviewCallbackData(parsed.eventId, 'partial'),
+            },
+            {
+              text: 'Missed',
+              callbackData: reviewCallbackData(parsed.eventId, 'missed'),
+            },
+          ],
+        ],
+      },
+    );
+    await dependencies.telegram.answerCallbackQuery(
+      callback.id,
+      'Note revealed.',
+    );
+    return;
+  }
+
+  const status = parsed.action === 'skip' ? 'skipped' : parsed.action;
+  const saved = await dependencies.repository.recordReviewFeedback(
+    userId,
+    parsed.eventId,
+    status,
+  );
+  await dependencies.telegram.answerCallbackQuery(
+    callback.id,
+    saved ? 'Review recorded.' : 'This review was already answered.',
+  );
 }
 
 async function linkChat(
@@ -388,16 +465,27 @@ export async function handleTelegramWebhook(
   if (!(await dependencies.repository.claimUpdate(update.updateId))) {
     return acknowledgement(true);
   }
-  if (!update.message) return acknowledgement();
+  if (!update.message && !update.callbackQuery) return acknowledgement();
 
   try {
-    await dispatchMessage(update.updateId, update.message, dependencies);
+    if (update.callbackQuery) {
+      await dispatchCallback(update.callbackQuery, dependencies);
+    } else if (update.message) {
+      await dispatchMessage(update.updateId, update.message, dependencies);
+    }
   } catch {
-    if (update.message.chatType === 'private' && update.message.chatId > 0) {
+    if (update.message?.chatType === 'private' && update.message.chatId > 0) {
       await dependencies.telegram
         .sendMessage(
           update.message.chatId,
           'Novah could not complete that request. Please try again with a new message.',
+        )
+        .catch(() => undefined);
+    } else if (update.callbackQuery) {
+      await dependencies.telegram
+        .answerCallbackQuery(
+          update.callbackQuery.id,
+          'Novah could not complete that action.',
         )
         .catch(() => undefined);
     }

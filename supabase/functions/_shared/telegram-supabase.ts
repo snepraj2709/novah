@@ -10,6 +10,7 @@ import type {
 import type {
   TelegramDueReview,
   TelegramRepository,
+  TelegramReviewReveal,
   TelegramSettings,
   TelegramTodayNote,
 } from './telegram-types.ts';
@@ -117,9 +118,9 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     const today = localDate(this.now(), profile.timezone);
     const { data: reviews, error } = await this.client
       .from('review_events')
-      .select('note_id, stage')
+      .select('id, note_id, stage')
       .eq('user_id', userId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'sent'])
       .lte('due_on', today)
       .order('due_on', { ascending: true })
       .limit(5);
@@ -139,6 +140,7 @@ export class SupabaseTelegramRepository implements TelegramRepository {
       return note
         ? [
             {
+              eventId: review.id,
               stage: review.stage,
               recallPrompt: note.recall_prompt,
               sourceTitle: note.source_title,
@@ -155,6 +157,38 @@ export class SupabaseTelegramRepository implements TelegramRepository {
       digestTime: profile.digest_time,
       reviewTime: profile.review_time,
     };
+  }
+
+  async revealReview(
+    userId: string,
+    eventId: string,
+  ): Promise<TelegramReviewReveal | null> {
+    const { data, error } = await this.client.rpc('reveal_review_for_user', {
+      input_user_id: userId,
+      input_event_id: eventId,
+    });
+    if (error) throw databaseFailure('Review could not be revealed.');
+    const row = data?.[0];
+    return row
+      ? { originalText: row.original_text, sourceTitle: row.source_title }
+      : null;
+  }
+
+  async recordReviewFeedback(
+    userId: string,
+    eventId: string,
+    status: 'remembered' | 'partial' | 'missed' | 'skipped',
+  ): Promise<boolean> {
+    const { data, error } = await this.client.rpc(
+      'record_review_feedback_for_user',
+      {
+        input_user_id: userId,
+        input_event_id: eventId,
+        input_status: status,
+      },
+    );
+    if (error) throw databaseFailure('Review feedback could not be saved.');
+    return data;
   }
 }
 

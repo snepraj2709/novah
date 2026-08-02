@@ -20,6 +20,14 @@ export interface TelegramFunctionEnvironment {
   telegramWebhookSecret: string;
 }
 
+export interface NotificationFunctionEnvironment {
+  openAiApiKey: string;
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  telegramBotToken: string;
+  cronSecret: string;
+}
+
 function required(name: string): string {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -59,5 +67,15 @@ export function telegramFunctionEnvironment(): TelegramFunctionEnvironment {
     supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
     telegramBotToken: required('TELEGRAM_BOT_TOKEN'),
     telegramWebhookSecret: required('TELEGRAM_WEBHOOK_SECRET'),
+  };
+}
+
+export function notificationFunctionEnvironment(): NotificationFunctionEnvironment {
+  return {
+    openAiApiKey: required('OPENAI_API_KEY'),
+    supabaseUrl: required('SUPABASE_URL'),
+    supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
+    telegramBotToken: required('TELEGRAM_BOT_TOKEN'),
+    cronSecret: required('CRON_SECRET'),
   };
 }

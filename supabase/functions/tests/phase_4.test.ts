@@ -18,6 +18,7 @@ import type {
   TelegramGateway,
   TelegramKnowledgeService,
   TelegramRepository,
+  TelegramReviewReveal,
   TelegramSettings,
   TelegramTodayNote,
   VoiceTranscriber,
@@ -41,6 +42,8 @@ class Repository implements TelegramRepository {
   consumedHashes: string[] = [];
   today: TelegramTodayNote[] = [];
   reviews: TelegramDueReview[] = [];
+  reveals = new Map<string, TelegramReviewReveal>();
+  feedback: Array<{ eventId: string; status: string }> = [];
   profileSettings: TelegramSettings = {
     timezone: 'Asia/Kolkata',
     digestTime: '21:00:00',
@@ -72,6 +75,22 @@ class Repository implements TelegramRepository {
 
   async settings(): Promise<TelegramSettings> {
     return this.profileSettings;
+  }
+
+  async revealReview(
+    _userId: string,
+    eventId: string,
+  ): Promise<TelegramReviewReveal | null> {
+    return this.reveals.get(eventId) ?? null;
+  }
+
+  async recordReviewFeedback(
+    _userId: string,
+    eventId: string,
+    status: 'remembered' | 'partial' | 'missed' | 'skipped',
+  ): Promise<boolean> {
+    this.feedback.push({ eventId, status });
+    return true;
   }
 }
 
@@ -127,12 +146,21 @@ class Knowledge implements TelegramKnowledgeService {
 }
 
 class Gateway implements TelegramGateway {
-  messages: Array<{ chatId: number; text: string }> = [];
+  messages: Array<{ chatId: number; text: string; options?: unknown }> = [];
+  callbackAnswers: Array<{ id: string; text?: string }> = [];
   downloads = 0;
   audio = new Uint8Array([7, 8, 9]);
 
-  async sendMessage(chatId: number, text: string): Promise<void> {
-    this.messages.push({ chatId, text });
+  async sendMessage(
+    chatId: number,
+    text: string,
+    options?: Parameters<TelegramGateway['sendMessage']>[2],
+  ): Promise<void> {
+    this.messages.push({ chatId, text, options });
+  }
+
+  async answerCallbackQuery(id: string, text?: string): Promise<void> {
+    this.callbackAnswers.push({ id, ...(text ? { text } : {}) });
   }
 
   async downloadVoice(): Promise<Uint8Array> {
@@ -394,6 +422,7 @@ describe('Telegram capture and commands', () => {
     ];
     context.repository.reviews = [
       {
+        eventId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
         stage: 1,
         recallPrompt: 'What was the synthetic lesson?',
         sourceTitle: 'Fixture source',

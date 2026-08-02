@@ -1,11 +1,13 @@
 export {
   captureNoteRequestSchema,
   captureNoteResponseSchema,
+  dailyDigestSchema,
   enrichmentSchema,
   searchNotesRequestSchema,
   searchNotesResponseSchema,
   type CaptureNoteRequest,
   type CaptureNoteResponse,
+  type DailyDigest,
   type Enrichment,
   type SearchMatch,
   type SearchNotesRequest,

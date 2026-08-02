@@ -36,6 +36,14 @@ const rawUpdateSchema = z
   .object({
     update_id: safeInteger.nonnegative(),
     message: rawMessageSchema.optional(),
+    callback_query: z
+      .object({
+        id: z.string().min(1),
+        data: z.string().min(1).max(64),
+        message: rawMessageSchema,
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 
@@ -43,6 +51,7 @@ export function parseTelegramUpdate(value: unknown): TelegramUpdate | null {
   const parsed = rawUpdateSchema.safeParse(value);
   if (!parsed.success) return null;
   const message = parsed.data.message;
+  const callbackQuery = parsed.data.callback_query;
   return {
     updateId: parsed.data.update_id,
     ...(message
@@ -67,6 +76,16 @@ export function parseTelegramUpdate(value: unknown): TelegramUpdate | null {
                 }
               : {}),
             forwarded: Boolean(message.forward_origin ?? message.forward_date),
+          },
+        }
+      : {}),
+    ...(callbackQuery
+      ? {
+          callbackQuery: {
+            id: callbackQuery.id,
+            chatId: callbackQuery.message.chat.id,
+            chatType: callbackQuery.message.chat.type,
+            data: callbackQuery.data,
           },
         }
       : {}),
