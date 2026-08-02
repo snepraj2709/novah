@@ -1,4 +1,9 @@
 import { ApiError } from './errors.ts';
+import {
+  RATE_LIMIT_ONLY_RETRY_STATUSES,
+  resilientFetch,
+  type Wait,
+} from './resilient-fetch.ts';
 import type {
   TelegramGateway,
   TelegramMessageOptions,
@@ -23,22 +28,37 @@ function telegramUnavailable(): ApiError {
 export class TelegramApiClient implements TelegramGateway {
   private readonly botToken: string;
   private readonly request: Fetch;
+  private readonly wait?: Wait;
 
-  constructor(botToken: string, request: Fetch = fetch) {
+  constructor(botToken: string, request: Fetch = fetch, wait?: Wait) {
     this.botToken = botToken;
     this.request = request;
+    this.wait = wait;
   }
 
-  private async call(method: string, body: Record<string, unknown>) {
+  private async call(
+    method: string,
+    body: Record<string, unknown>,
+    retryMode: 'safe' | 'rate-limit-only' = 'safe',
+  ) {
     let response: Response;
     try {
-      response = await this.request(
+      response = await resilientFetch(
+        this.request,
         `https://api.telegram.org/bot${this.botToken}/${method}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(20_000),
+        },
+        {
+          timeoutMs: 20_000,
+          maximumAttempts: 2,
+          retryNetworkErrors: retryMode === 'safe',
+          ...(retryMode === 'rate-limit-only'
+            ? { retryStatuses: RATE_LIMIT_ONLY_RETRY_STATUSES }
+            : {}),
+          wait: this.wait,
         },
       );
     } catch {
@@ -59,23 +79,27 @@ export class TelegramApiClient implements TelegramGateway {
     text: string,
     options?: TelegramMessageOptions,
   ): Promise<void> {
-    await this.call('sendMessage', {
-      chat_id: chatId,
-      text,
-      link_preview_options: { is_disabled: true },
-      ...(options?.inlineKeyboard
-        ? {
-            reply_markup: {
-              inline_keyboard: options.inlineKeyboard.map((row) =>
-                row.map((button) => ({
-                  text: button.text,
-                  callback_data: button.callbackData,
-                })),
-              ),
-            },
-          }
-        : {}),
-    });
+    await this.call(
+      'sendMessage',
+      {
+        chat_id: chatId,
+        text,
+        link_preview_options: { is_disabled: true },
+        ...(options?.inlineKeyboard
+          ? {
+              reply_markup: {
+                inline_keyboard: options.inlineKeyboard.map((row) =>
+                  row.map((button) => ({
+                    text: button.text,
+                    callback_data: button.callbackData,
+                  })),
+                ),
+              },
+            }
+          : {}),
+      },
+      'rate-limit-only',
+    );
   }
 
   async answerCallbackQuery(
@@ -112,9 +136,11 @@ export class TelegramApiClient implements TelegramGateway {
 
     let response: Response;
     try {
-      response = await this.request(
+      response = await resilientFetch(
+        this.request,
         `https://api.telegram.org/file/bot${this.botToken}/${filePath}`,
-        { signal: AbortSignal.timeout(20_000) },
+        {},
+        { timeoutMs: 20_000, maximumAttempts: 2, wait: this.wait },
       );
     } catch {
       throw telegramUnavailable();

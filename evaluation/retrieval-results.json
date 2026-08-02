@@ -1,0 +1,16 @@
+{
+  "evaluatedAt": "2026-08-02T09:56:49.130Z",
+  "providerCalls": 1,
+  "model": "text-embedding-3-small",
+  "dimensions": 1536,
+  "queryCount": 30,
+  "topFiveHits": 30,
+  "topFiveHitRate": 1,
+  "failures": [],
+  "failureTaxonomy": {
+    "noteWording": 0,
+    "embeddingQuality": 0,
+    "queryAmbiguity": 0,
+    "incorrectExpectedMatch": 0
+  }
+}

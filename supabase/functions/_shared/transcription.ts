@@ -3,6 +3,7 @@ import {
   OPENAI_TRANSCRIPTION_MODEL,
 } from '../../../packages/shared/src/constants/index.ts';
 import { ApiError } from './errors.ts';
+import { resilientFetch, type Wait } from './resilient-fetch.ts';
 import type { VoiceTranscriber } from './telegram-types.ts';
 
 type Fetch = typeof fetch;
@@ -19,10 +20,12 @@ function transcriptionUnavailable(): ApiError {
 export class OpenAiVoiceTranscriber implements VoiceTranscriber {
   private readonly apiKey: string;
   private readonly request: Fetch;
+  private readonly wait?: Wait;
 
-  constructor(apiKey: string, request: Fetch = fetch) {
+  constructor(apiKey: string, request: Fetch = fetch, wait?: Wait) {
     this.apiKey = apiKey;
     this.request = request;
+    this.wait = wait;
   }
 
   async transcribe(audio: Uint8Array, mimeType: string): Promise<string> {
@@ -40,14 +43,15 @@ export class OpenAiVoiceTranscriber implements VoiceTranscriber {
     try {
       let response: Response;
       try {
-        response = await this.request(
+        response = await resilientFetch(
+          this.request,
           'https://api.openai.com/v1/audio/transcriptions',
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${this.apiKey}` },
             body: form,
-            signal: AbortSignal.timeout(30_000),
           },
+          { timeoutMs: 30_000, maximumAttempts: 2, wait: this.wait },
         );
       } catch {
         throw transcriptionUnavailable();

@@ -1,5 +1,6 @@
 import {
   MAX_TELEGRAM_MESSAGE_LENGTH,
+  MAX_TELEGRAM_UPDATE_BYTES,
   MAX_TELEGRAM_VOICE_BYTES,
   MAX_TELEGRAM_VOICE_DURATION_SECONDS,
   TELEGRAM_LINK_CODE_LENGTH,
@@ -458,7 +459,9 @@ export async function handleTelegramWebhook(
     throw new ApiError(401, 'unauthorized', 'Webhook authentication failed.');
   }
 
-  const update = parseTelegramUpdate(await parseJson(request));
+  const update = parseTelegramUpdate(
+    await parseJson(request, MAX_TELEGRAM_UPDATE_BYTES),
+  );
   if (!update) {
     throw new ApiError(400, 'bad_request', 'Telegram update is invalid.');
   }

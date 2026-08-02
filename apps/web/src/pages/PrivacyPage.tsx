@@ -81,6 +81,23 @@ export function PrivacyPage({ signedIn }: { signedIn: boolean }) {
             where infrastructure providers must retain limited operational data.
           </p>
         </section>
+        <section>
+          <h2>Purpose, providers, and changes</h2>
+          <p>
+            Novah processes data to authenticate you, provide the features you
+            request, secure the private beta, and operate it. Supabase, OpenAI,
+            Telegram, and the web host receive only the information needed for
+            their role. Material policy changes will be communicated through the
+            beta invitation channel with a new effective date.
+          </p>
+        </section>
+        <section>
+          <h2>Questions or deletion help</h2>
+          <p>
+            Contact the beta operator through your invitation channel if you
+            need help accessing, exporting, or deleting your information.
+          </p>
+        </section>
       </article>
     </main>
   );

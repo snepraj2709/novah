@@ -4,6 +4,7 @@ import {
 } from '../../../packages/shared/src/contracts/index.ts';
 import { MAX_TELEGRAM_MESSAGE_LENGTH } from '../../../packages/shared/src/constants/index.ts';
 import { ApiError, errorResponse } from './errors.ts';
+import { parseOptionalJson } from './http.ts';
 import type {
   ClaimedReview,
   DigestEvidenceNote,
@@ -437,7 +438,12 @@ export function createNotificationHandler(
         new ApiError(401, 'unauthorized', 'Cron authentication failed.'),
       );
     }
-    const body = await request.json().catch(() => null);
+    let body: unknown;
+    try {
+      body = await parseOptionalJson(request);
+    } catch (error) {
+      return errorResponse(error);
+    }
     if (
       body &&
       typeof body === 'object' &&

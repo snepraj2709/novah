@@ -6,6 +6,7 @@ import {
   OPENAI_TEXT_MODEL,
 } from './contracts.ts';
 import { ApiError } from './errors.ts';
+import { resilientFetch, type Wait } from './resilient-fetch.ts';
 import type { AiProvider, SynthesisClaim } from './types.ts';
 
 type Fetch = typeof fetch;
@@ -73,28 +74,34 @@ function unavailable(): ApiError {
 export class OpenAiProvider implements AiProvider {
   private readonly apiKey: string;
   private readonly request: Fetch;
+  private readonly wait?: Wait;
 
-  constructor(apiKey: string, request: Fetch = fetch) {
+  constructor(apiKey: string, request: Fetch = fetch, wait?: Wait) {
     this.apiKey = apiKey;
     this.request = request;
+    this.wait = wait;
   }
 
   private async responses(body: Record<string, unknown>): Promise<unknown> {
     let response: Response;
     try {
-      response = await this.request('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
+      response = await resilientFetch(
+        this.request,
+        'https://api.openai.com/v1/responses',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: OPENAI_TEXT_MODEL,
+            store: false,
+            ...body,
+          }),
         },
-        body: JSON.stringify({
-          model: OPENAI_TEXT_MODEL,
-          store: false,
-          ...body,
-        }),
-        signal: AbortSignal.timeout(30_000),
-      });
+        { timeoutMs: 30_000, maximumAttempts: 2, wait: this.wait },
+      );
     } catch {
       throw unavailable();
     }
@@ -148,20 +155,24 @@ export class OpenAiProvider implements AiProvider {
   async embed(input: string): Promise<number[]> {
     let response: Response;
     try {
-      response = await this.request('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
+      response = await resilientFetch(
+        this.request,
+        'https://api.openai.com/v1/embeddings',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: OPENAI_EMBEDDING_MODEL,
+            input,
+            dimensions: OPENAI_EMBEDDING_DIMENSIONS,
+            encoding_format: 'float',
+          }),
         },
-        body: JSON.stringify({
-          model: OPENAI_EMBEDDING_MODEL,
-          input,
-          dimensions: OPENAI_EMBEDDING_DIMENSIONS,
-          encoding_format: 'float',
-        }),
-        signal: AbortSignal.timeout(30_000),
-      });
+        { timeoutMs: 30_000, maximumAttempts: 2, wait: this.wait },
+      );
     } catch {
       throw unavailable();
     }

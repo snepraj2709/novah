@@ -1086,18 +1086,18 @@ feat: add personal knowledge dashboard
 
 #### Checklist
 
-- [ ] 7.1 Search the repository and build outputs for committed secrets.
-- [ ] 7.2 Verify every Edge Function authorization path.
-- [ ] 7.3 Verify CORS allowlists.
-- [ ] 7.4 Add request-size, note-length, URL and voice-duration limits.
-- [ ] 7.5 Add timeout and retry behaviour for OpenAI and Telegram calls.
-- [ ] 7.6 Confirm production logs omit content and authorization data.
-- [ ] 7.7 Create 30 retrieval-evaluation queries with expected note IDs.
-- [ ] 7.8 Measure top-five hit rate and record failures.
-- [ ] 7.9 Test duplicate capture, duplicate webhook and duplicate Cron execution.
-- [ ] 7.10 Test export, note deletion and account deletion.
-- [ ] 7.11 Complete the privacy policy and runbook.
-- [ ] 7.12 Record evidence in `docs/test-evidence.md`.
+- [x] 7.1 Search the repository and build outputs for committed secrets.
+- [x] 7.2 Verify every Edge Function authorization path.
+- [x] 7.3 Verify CORS allowlists.
+- [x] 7.4 Add request-size, note-length, URL and voice-duration limits.
+- [x] 7.5 Add timeout and retry behaviour for OpenAI and Telegram calls.
+- [x] 7.6 Confirm production logs omit content and authorization data.
+- [x] 7.7 Create 30 retrieval-evaluation queries with expected note IDs.
+- [x] 7.8 Measure top-five hit rate and record failures.
+- [x] 7.9 Test duplicate capture, duplicate webhook and duplicate Cron execution.
+- [x] 7.10 Test export, note deletion and account deletion.
+- [x] 7.11 Complete the privacy policy and runbook.
+- [x] 7.12 Record evidence in `docs/test-evidence.md`.
 
 #### Retrieval target
 
@@ -1212,7 +1212,7 @@ chore: package chrome private beta
 | 4. Telegram | Complete | Approved migration and both functions are active on Novah; 19 Phase 4 pgTAP assertions and 18 Telegram handler tests pass; hosted link-code/security fixtures, the live text/voice/search/command journey, signed replay, unknown-chat isolation, exact five-review checks and cleanup pass without recording content or identifiers. | — |
 | 5. Digest and reviews | Complete | Items 5.1–5.11 pass locally and on Novah. Both Phase 5 migrations and corrected functions are hosted; the disposable contract verifier, authenticated single-job Cron reconfiguration, zero-write preflight, bounded live delivery, immediate retry deduplication, settings restoration and independent cleanup audit pass. Final regression evidence includes warning-free schema lint, 91 pgTAP assertions, 42 function tests, 9 extension tests, recursive type-check, lint, formatting and both production builds. | — |
 | 6. Web dashboard | Not started | — | — |
-| 7. Hardening | Not started | — | — |
+| 7. Hardening | Complete | All items 7.1–7.12 pass. Repository, history and production-build secret scanning; six function authorization modes; exact CORS; bounded input; provider resilience; duplicate execution; export/deletion paths; privacy/runbook; and full local gates pass. One approved synthetic embeddings batch measured 30/30 top-five hits with no failures. | — |
 | 8. Deployment | Not started | — | — |
 | 9. Distribution | Not started | — | — |
 
@@ -1359,6 +1359,8 @@ Codex appends one concise row after each verified checklist item or phase gate.
 | 2026-08-02 13:29 IST | Phase 5 corrected hosted refresh | Forward migration, corrected Edge bundles, hosted contracts and Cron | After explicit approval, migration `20260802120000` reached Novah; `process-notifications` and `telegram-webhook` were redeployed. The zero-provider hosted verifier passed authorization, exact-date evidence, concurrent claims, owner scope and cleanup. The authenticated Cron probe passed before atomically replacing the job with one active ten-minute schedule and the 120-second request timeout. | Hosted contracts and Cron pass with zero exposed secrets, zero contract-verifier model calls and zero contract-verifier Telegram messages. |
 | 2026-08-02 13:29 IST | Phase 5 live-verifier isolation correction | Live delivery verifier and cleanup audit | The approved live run delivered two messages, then rejected a digest containing more than the synthetic note. Diagnosis proved candidate selection had queried through the profile's old timezone before changing it. Cleanup and an independent audit found zero synthetic notes or digests and restored the profile. The selector now evaluates every stored capture timestamp in each candidate timezone, and a new pre-send check requires exactly the synthetic note and review. | The failed verifier run likely made one unintended digest model call and could include the linked tester's own notes in their own digest; no cross-user data was involved. The corrected zero-write preflight passes with one linked tester and a clean candidate. A renewed two-message, zero-model-call run is required before the phase gate can complete. |
 | 2026-08-02 14:27 IST | Phase 5 final hosted gate | Corrected live verifier, independent cleanup and full regression suite | After renewed explicit approval, the zero-write preflight passed immediately before delivery. The verifier proved exactly one synthetic note and one synthetic due review, sent one digest and one review packet, observed zero repeat sends, made zero model calls, restored all profile settings and deleted its fixtures. The independent cleanup audit found zero synthetic notes or digests. | Complete: migration parity, corrected active function versions, one authenticated secret-free ten-minute Cron job, hosted contracts, live delivery and every Phase 5 gate pass. Final local regression evidence remains 91 pgTAP assertions, 42 function tests, 9 extension tests, warning-free schema lint, recursive type-check, lint, formatting and both production builds. |
+| 2026-08-02 15:24 IST | 7.1–7.7 and 7.9–7.11 private-beta hardening | Shared request limits, strict CORS, provider resilience, security scanner, deterministic tests, 30-query fixture, privacy policy and runbook | The scanner checked 145 tracked or untracked would-be-commit and production-build text files, 704 historical file revisions, all six Edge Function authorization modes, wildcard CORS and production logging. Fifty-five function tests cover user-function denial before side effects, bounded bodies, note and URL limits, voice limits, OpenAI and Telegram retries, at-most-once sends, duplicate capture/webhook/Cron and the evaluation scorer. Four web export tests, 91 pgTAP assertions including owned-note cascade, account-deletion boundary tests, recursive type-check, lint, formatting and both builds pass. | Complete for these items: no credential-like value, privileged browser credential, wildcard CORS or application content logging was found; the privacy policy and recovery runbook are complete. Item 7.8 and the final evidence/gate remain pending one explicitly approved, synthetic, one-call embeddings measurement. |
+| 2026-08-02 15:26 IST | 7.8, 7.12 and Phase 7 gate | Synthetic retrieval evaluation, recorded result, test evidence and full local regression suite | After explicit approval, one `text-embedding-3-small` batch embedded 15 synthetic notes and 30 paraphrased queries at 1,536 dimensions. The scorer measured 30/30 expected-note hits in the top five. The result records one provider call, no query text, no failures and zero counts for note wording, embedding quality, query ambiguity and incorrect expected match. Full security, function, database, web, extension, type-check, lint, formatting and production-build gates were rerun. | Complete: top-five hit rate is 100%, exceeding the 80% target; no failure tuning or threshold change was made. Weak-retrieval and invalid-citation tests continue to withhold synthesis. All Phase 7 checklist items and gate conditions pass. |
 
 ---
 

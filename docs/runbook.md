@@ -1,6 +1,6 @@
 # Novah Runbook
 
-> Status: Phase 5 review fixes are verified locally; corrected hosted verification is pending.
+> Status: Phase 7 private-beta hardening is verified locally. Phase 8 deployment is not included.
 
 ## Local development
 
@@ -88,8 +88,16 @@ Failed captures remain under the extension-local
 retried. Supabase Auth uses the separate `novah-auth-session` key. Do not copy
 either storage value into logs or test evidence.
 
-The web development command will be documented when its feature phase is
-implemented.
+### Web dashboard
+
+```bash
+pnpm --filter web dev
+pnpm --filter web test
+pnpm --filter web build
+```
+
+The web app uses only the public Supabase URL and publishable key. Keep the
+service-role, OpenAI, Telegram and Cron secrets out of every browser environment.
 
 ### Phase 5 notifications
 
@@ -185,11 +193,41 @@ contracts cover reveal, skip and recall-quality event isolation.
 
 ## Environment and secrets
 
-Document variable placement and rotation procedures without recording secret values. Real environment files must remain untracked.
+Real environment files remain untracked. Browser bundles receive only the public
+Supabase URL and publishable key. Edge Functions hold provider, webhook, Cron and
+service-role secrets. To rotate a secret, create the replacement locally, update
+the intended hosted secret store only after explicit approval, verify the
+affected signed endpoint, and then revoke the old value. Never print the value,
+put it on a command line that will be retained, or copy it into evidence.
+
+Run `pnpm test:security` against tracked files and current web and extension
+build outputs before a release. It scans credential shapes, all six Edge
+Function authorization modes, wildcard CORS and production application logging.
+
+## Provider and request safety
+
+User JSON requests are limited to 64 KiB; Telegram updates are limited to 256
+KiB. Notes are limited to 20,000 characters, source URLs to 2,048 characters and
+HTTP(S), and voice messages to two minutes and 10 MiB. Limits apply to declared
+and streamed bodies.
+
+OpenAI requests have a 30-second timeout and at most two attempts for transient
+failures. Safe Telegram reads and acknowledgements have a 20-second timeout and
+at most two attempts. Message sends retry only an explicit rate limit; network
+or server failures have an uncertain delivery outcome and are not automatically
+repeated.
+
+Production function source emits no application logs. In particular, note text,
+transcriptions, request bodies, authorization headers and secret values are not
+logged. Hosting-platform metadata may still include request time, status and
+function identity; inspect only those fields during an incident.
 
 ## Deployment and rollback
 
-Document approved deployment steps, deployed identifiers and tested rollback commands when production deployment begins.
+Phase 8 owns deployment and rollback. Before deploying, preserve the current
+function versions, apply only reviewed migrations, deploy the changed functions,
+run content-free authorization probes, and record the resulting identifiers.
+Rollback must target those preserved versions and requires separate approval.
 
 ## Operations and recovery
 
@@ -203,3 +241,36 @@ explicit approval.
 Telegram outages can leave a persisted digest or review claim without `sent_at`.
 Preserve that evidence, resolve the outage, and decide manually whether a resend
 is safe. Automatic retry is intentionally disabled for claimed deliveries.
+
+For a failed extension or web capture, keep the local draft and its original
+`clientRequestId`. Check endpoint health without note content, resolve the
+provider or network problem, and retry the same request ID. The database
+idempotency constraint prevents a second note if the first response was lost.
+
+For duplicate webhook suspicion, inspect the Telegram update claim before doing
+anything else. A claimed update is acknowledged without repeating capture,
+search or callback side effects. Do not delete a claim to force replay.
+
+For export problems, retry the client-side export; it reads only the signed-in
+user's library and makes no server mutation. For note deletion, confirm the
+target in the UI and then verify the row and its review events disappeared. For
+account deletion, export first if needed, confirm the destructive action, and
+verify sign-out after the privileged deletion returns success. Never treat a
+client timeout as proof that account deletion failed; check account state before
+repeating it.
+
+## Retrieval evaluation
+
+`pnpm test:retrieval:validate` checks the synthetic 15-note, 30-query fixture and
+its expected note IDs without a provider call. A live measurement sends all 45
+synthetic strings in one embeddings request only when the exact approval guard
+and a locally held OpenAI key are present:
+
+```bash
+NOVAH_APPROVE_PHASE7_EVAL=one-openai-embedding-call pnpm test:retrieval:live
+```
+
+Record the top-five hit rate and classify every miss as note wording, embedding
+quality, query ambiguity or an incorrect expected match. Do not lower the
+similarity threshold to disguise misses. The search path continues to withhold
+synthesis for weak retrieval and for any unsupported citation.

@@ -1,4 +1,5 @@
 import { ApiError, errorResponse } from './errors.ts';
+import { MAX_JSON_REQUEST_BYTES } from '../../../packages/shared/src/constants/index.ts';
 
 export interface CorsConfiguration {
   appUrl?: string;
@@ -15,7 +16,21 @@ function allowedOrigins(configuration: CorsConfiguration): Set<string> {
   const origins = new Set<string>();
 
   if (configuration.appUrl) {
-    origins.add(configuration.appUrl.replace(/\/$/u, ''));
+    try {
+      const url = new URL(configuration.appUrl);
+      if (
+        (url.protocol === 'https:' || url.protocol === 'http:') &&
+        !url.username &&
+        !url.password &&
+        url.pathname === '/' &&
+        !url.search &&
+        !url.hash
+      ) {
+        origins.add(url.origin);
+      }
+    } catch {
+      // Invalid configuration is fail-closed: it contributes no allowed origin.
+    }
   }
 
   for (const extensionId of configuration.extensionIds ?? []) {
@@ -62,7 +77,7 @@ export function createHttpHandler(
     const origin = request.headers.get('Origin');
     const headers = corsHeaders(origin);
 
-    if (origin && !origins.has(origin.replace(/\/$/u, ''))) {
+    if (origin && !origins.has(origin)) {
       return withHeaders(
         errorResponse(
           new ApiError(403, 'origin_not_allowed', 'Origin is not allowed.'),
@@ -96,10 +111,76 @@ export function createHttpHandler(
   };
 }
 
-export async function parseJson(request: Request): Promise<unknown> {
+function declaredLength(request: Request): number | null {
+  const value = request.headers.get('Content-Length');
+  if (value === null) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+async function readBody(
+  request: Request,
+  maximumBytes: number,
+): Promise<Uint8Array | null> {
+  const length = declaredLength(request);
+  if (length !== null && length > maximumBytes) {
+    throw new ApiError(413, 'payload_too_large', 'Request body is too large.');
+  }
+  if (!request.body) return null;
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
   try {
-    return await request.json();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      byteLength += value.byteLength;
+      if (byteLength > maximumBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new ApiError(
+          413,
+          'payload_too_large',
+          'Request body is too large.',
+        );
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(byteLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  } finally {
+    for (const chunk of chunks) chunk.fill(0);
+  }
+}
+
+function decodeJson(bytes: Uint8Array): unknown {
+  try {
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   } catch {
     throw new ApiError(400, 'bad_request', 'Request body must be valid JSON.');
   }
+}
+
+export async function parseJson(
+  request: Request,
+  maximumBytes = MAX_JSON_REQUEST_BYTES,
+): Promise<unknown> {
+  const bytes = await readBody(request, maximumBytes);
+  if (!bytes || bytes.byteLength === 0) {
+    throw new ApiError(400, 'bad_request', 'Request body must be valid JSON.');
+  }
+  return decodeJson(bytes);
+}
+
+export async function parseOptionalJson(
+  request: Request,
+  maximumBytes = MAX_JSON_REQUEST_BYTES,
+): Promise<unknown | null> {
+  const bytes = await readBody(request, maximumBytes);
+  return !bytes || bytes.byteLength === 0 ? null : decodeJson(bytes);
 }

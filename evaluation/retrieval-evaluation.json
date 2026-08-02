@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "model": "text-embedding-3-small",
+  "dimensions": 1536,
+  "notes": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "text": "Treat early product choices as reversible experiments. Write down the assumption, the cheapest prototype, and the signal that would justify committing."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "text": "Caffeine after lunch delays sleep even when I feel tired. Stop coffee by noon and keep the bedroom cool and dark."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000003",
+      "text": "Useful feedback asks about a specific observed moment: what felt confusing, what the person expected, and what they tried next."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000004",
+      "text": "Reading becomes durable when I close the book, recall the argument from memory, and revisit the question after several days."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000005",
+      "text": "A meeting agenda should name the decision, the decision owner, the evidence needed, and the timebox. Status updates belong in writing."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000006",
+      "text": "Delegate outcomes rather than instructions. Give context, constraints, a clear definition of done, and a checkpoint proportional to risk."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000007",
+      "text": "Incident reviews should be blameless timelines. Separate contributing conditions from the trigger and assign follow-up actions with owners."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000008",
+      "text": "Pricing interviews work better when customers compare concrete alternatives and past spending. Hypothetical willingness to pay is weak evidence."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000009",
+      "text": "Exercise consistency improved when the minimum session became ten minutes and clothes were prepared the night before. Intensity can grow later."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000010",
+      "text": "Editing is easier in separate passes: first structure and missing logic, then sentence clarity, then spelling and punctuation."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000011",
+      "text": "When uncertainty cannot be removed, list what is controllable, choose the next useful action, and set a date to reconsider the decision."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000012",
+      "text": "Before a database migration, take a tested backup, make the change backward compatible, verify row counts, and document the rollback command."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000013",
+      "text": "Customer onboarding should reach one meaningful success quickly. Remove setup steps that do not contribute to the first useful outcome."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000014",
+      "text": "Protect focus by disabling non-human notifications, batching inbox checks, and reserving a visible block for one demanding task."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000015",
+      "text": "Trust grows through small reliable follow-through: make fewer promises, record commitments, communicate early when plans change, and close the loop."
+    }
+  ],
+  "queries": [
+    {
+      "query": "How should I approach a product decision that may be wrong?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000001"]
+    },
+    {
+      "query": "What makes an early feature choice safe to test?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000001"]
+    },
+    {
+      "query": "What habit was interfering with my sleep?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000002"]
+    },
+    {
+      "query": "When should I stop drinking coffee?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000002"]
+    },
+    {
+      "query": "How can I ask someone for actionable feedback?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000003"]
+    },
+    {
+      "query": "Which questions uncover a confusing user experience?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000003"]
+    },
+    {
+      "query": "How do I remember more of what I read?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000004"]
+    },
+    {
+      "query": "What was my active recall reading routine?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000004"]
+    },
+    {
+      "query": "What belongs in an effective meeting agenda?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000005"]
+    },
+    {
+      "query": "How do I keep status reporting out of meetings?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000005"]
+    },
+    {
+      "query": "What does good delegation specify?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000006"]
+    },
+    {
+      "query": "How should I hand off work without micromanaging?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000006"]
+    },
+    {
+      "query": "How should the team conduct a postmortem?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000007"]
+    },
+    {
+      "query": "What makes an incident review blameless and useful?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000007"]
+    },
+    {
+      "query": "How do I get credible evidence about pricing?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000008"]
+    },
+    {
+      "query": "Why are hypothetical willingness-to-pay answers weak?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000008"]
+    },
+    {
+      "query": "What made my exercise routine more consistent?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000009"]
+    },
+    {
+      "query": "How can I lower the barrier to working out?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000009"]
+    },
+    {
+      "query": "In what order should I revise a draft?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000010"]
+    },
+    {
+      "query": "How do I avoid mixing structural and copy edits?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000010"]
+    },
+    {
+      "query": "What should I do when uncertainty remains?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000011"]
+    },
+    {
+      "query": "How can I act without resolving every unknown?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000011"]
+    },
+    {
+      "query": "What safety steps precede a schema change?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000012"]
+    },
+    {
+      "query": "How should I make a database migration reversible?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000012"]
+    },
+    {
+      "query": "What should onboarding optimize for first?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000013"]
+    },
+    {
+      "query": "How do we shorten time to a customer's first success?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000013"]
+    },
+    {
+      "query": "How can I protect time for deep work?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000014"]
+    },
+    {
+      "query": "Which notification habits reduce distraction?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000014"]
+    },
+    {
+      "query": "What everyday behaviors build trust?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000015"]
+    },
+    {
+      "query": "How should I handle a commitment when plans change?",
+      "expectedNoteIds": ["10000000-0000-4000-8000-000000000015"]
+    }
+  ]
+}
