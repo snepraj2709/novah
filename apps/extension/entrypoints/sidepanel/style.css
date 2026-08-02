@@ -232,8 +232,9 @@ button:disabled {
 .capture-form {
   margin-top: 18px;
 }
-.capture-success {
-  margin-bottom: 16px;
+.capture-form label,
+.draft-picker {
+  font-weight: 500;
 }
 .source-grid {
   display: grid;

@@ -303,7 +303,7 @@ async function captureText(
   await send(
     dependencies.telegram,
     message.chatId,
-    `Saved as ${result.note.noteType}. First review: ${result.note.firstReviewDate}.`,
+    `Saved as ${result.note.noteType}.`,
   );
 }
 
@@ -351,7 +351,7 @@ async function captureVoice(
   await send(
     dependencies.telegram,
     message.chatId,
-    `Saved voice note as ${result.note.noteType}. First review: ${result.note.firstReviewDate}.`,
+    `Saved voice note as ${result.note.noteType}.`,
   );
 }
 

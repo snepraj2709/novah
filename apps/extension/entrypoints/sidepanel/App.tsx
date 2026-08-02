@@ -226,7 +226,7 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
     }
   }
 
-  if (!activeDraft) {
+  if (!activeDraft || saved) {
     return (
       <section className="empty-card">
         {saved ? (
@@ -241,7 +241,6 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
                 <span key={tag}>{tag}</span>
               ))}
             </div>
-            <p className="subtle">First review: {saved.firstReviewDate}</p>
           </>
         ) : (
           <>
@@ -265,11 +264,6 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
 
   return (
     <section>
-      {saved && (
-        <div className="message success capture-success" role="status">
-          Saved to Novah: {saved.summary}
-        </div>
-      )}
       <div className="section-heading">
         <div>
           <p className="eyebrow">Capture</p>
@@ -311,7 +305,7 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
 
       <form onSubmit={submit} className="stack capture-form">
         <label>
-          Note <span aria-hidden="true">*</span>
+            Note 
           <textarea
             rows={7}
             value={activeDraft.originalText}
