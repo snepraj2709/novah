@@ -1052,17 +1052,17 @@ feat: add daily digest and spaced review delivery
 
 #### Checklist
 
-- [ ] 6.1 Add authenticated routing.
-- [ ] 6.2 Build Today with today's notes and stored digest.
-- [ ] 6.3 Build Library with search, type filter and pagination.
-- [ ] 6.4 Build Review with due and completed states.
-- [ ] 6.5 Build Settings for timezone, digest time and review time.
-- [ ] 6.6 Add Telegram link-code generation and connection status.
-- [ ] 6.7 Add note deletion with confirmation.
-- [ ] 6.8 Add JSON and Markdown export.
-- [ ] 6.9 Add account deletion with confirmation and reauthentication if supported.
-- [ ] 6.10 Add responsive empty, loading and error states.
-- [ ] 6.11 Add the privacy policy route.
+- [x] 6.1 Add authenticated routing.
+- [x] 6.2 Build Today with today's notes and stored digest.
+- [x] 6.3 Build Library with search, type filter and pagination.
+- [x] 6.4 Build Review with due and completed states.
+- [x] 6.5 Build Settings for timezone, digest time and review time.
+- [x] 6.6 Add Telegram link-code generation and connection status.
+- [x] 6.7 Add note deletion with confirmation.
+- [x] 6.8 Add JSON and Markdown export.
+- [x] 6.9 Add account deletion with confirmation and reauthentication if supported.
+- [x] 6.10 Add responsive empty, loading and error states.
+- [x] 6.11 Add the privacy policy route.
 
 #### Phase gate
 

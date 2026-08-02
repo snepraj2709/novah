@@ -165,6 +165,12 @@ export const telegramLinkCodeResponseSchema = z
   })
   .strict();
 
+export const deleteAccountRequestSchema = z.object({}).strict();
+
+export const deleteAccountResponseSchema = z
+  .object({ deleted: z.literal(true) })
+  .strict();
+
 export const digestThemeSchema = z
   .object({
     title: nonBlankString(200),
@@ -206,4 +212,6 @@ export type TelegramLinkCodeRequest = z.infer<
 export type TelegramLinkCodeResponse = z.infer<
   typeof telegramLinkCodeResponseSchema
 >;
+export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;
+export type DeleteAccountResponse = z.infer<typeof deleteAccountResponseSchema>;
 export type DailyDigest = z.infer<typeof dailyDigestSchema>;

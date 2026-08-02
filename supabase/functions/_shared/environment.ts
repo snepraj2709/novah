@@ -28,6 +28,10 @@ export interface NotificationFunctionEnvironment {
   cronSecret: string;
 }
 
+export interface AccountDeletionFunctionEnvironment extends PublicFunctionEnvironment {
+  supabaseServiceRoleKey: string;
+}
+
 function required(name: string): string {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -77,5 +81,12 @@ export function notificationFunctionEnvironment(): NotificationFunctionEnvironme
     supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
     telegramBotToken: required('TELEGRAM_BOT_TOKEN'),
     cronSecret: required('CRON_SECRET'),
+  };
+}
+
+export function accountDeletionFunctionEnvironment(): AccountDeletionFunctionEnvironment {
+  return {
+    ...publicFunctionEnvironment(),
+    supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
   };
 }

@@ -13,6 +13,8 @@
     "deno-globals.d.ts",
     "_shared/**/*.ts",
     "capture-note/**/*.ts",
+    "delete-account/**/*.ts",
+    "process-notifications/**/*.ts",
     "search-notes/**/*.ts",
     "telegram-link-code/**/*.ts",
     "telegram-webhook/**/*.ts"
