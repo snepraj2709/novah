@@ -4,3 +4,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Local deployment identifiers and rollback notes. Never commit this directory.
+.novah-private/
+.vercel
+.env*.local

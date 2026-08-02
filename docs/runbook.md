@@ -1,6 +1,6 @@
 # Novah Runbook
 
-> Status: Phase 7 private-beta hardening is verified locally. Phase 8 deployment is not included.
+> Status: Phase 8 is complete. Production deployment, bounded smoke verification, rollback evidence and cleanup pass.
 
 ## Local development
 
@@ -204,6 +204,36 @@ Run `pnpm test:security` against tracked files and current web and extension
 build outputs before a release. It scans credential shapes, all six Edge
 Function authorization modes, wildcard CORS and production application logging.
 
+### Production placement
+
+| Variable                        | Production placement                                     | Classification |
+| ------------------------------- | -------------------------------------------------------- | -------------- |
+| `VITE_SUPABASE_URL`             | Vercel Production and extension build environment        | Public         |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Vercel Production and extension build environment        | Public         |
+| `APP_URL`                       | Supabase Edge Function secret/config and Auth `site_url` | Public origin  |
+| `ALLOWED_EXTENSION_IDS`         | Supabase Edge Function secret/config                     | Public IDs     |
+| `OPENAI_API_KEY`                | Supabase Edge Function secrets only                      | Secret         |
+| `TELEGRAM_BOT_TOKEN`            | Supabase Edge Function secrets only                      | Secret         |
+| `TELEGRAM_WEBHOOK_SECRET`       | Supabase Edge Function secrets only                      | Secret         |
+| `CRON_SECRET`                   | Supabase Edge Function secrets and Supabase Vault only   | Secret         |
+| `SUPABASE_URL`                  | Supabase-managed Edge Function environment               | Managed        |
+| `SUPABASE_ANON_KEY`             | Supabase-managed Edge Function environment               | Managed public |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase-managed Edge Function environment               | Managed secret |
+
+Vercel must never receive any server-only provider, service-role, webhook or
+Cron secret. The committed `vercel.json` builds the `web` workspace, publishes
+`apps/web/dist`, applies the SPA fallback, and adds browser security headers.
+Run the credential-free placement check before linking or deploying Vercel:
+
+```bash
+pnpm test:phase8:config
+pnpm --filter web build
+```
+
+The production `APP_URL` is also substituted into `supabase/config.toml` for
+Auth redirects. `supabase config push` is a hosted configuration write and must
+not run until the exact Vercel production URL is known and approved.
+
 ## Provider and request safety
 
 User JSON requests are limited to 64 KiB; Telegram updates are limited to 256
@@ -225,9 +255,120 @@ function identity; inspect only those fields during an incident.
 ## Deployment and rollback
 
 Phase 8 owns deployment and rollback. Before deploying, preserve the current
-function versions, apply only reviewed migrations, deploy the changed functions,
+function versions, migration list, Cron status, Telegram webhook metadata and
+Vercel project state. Apply only reviewed migrations, deploy all six functions,
 run content-free authorization probes, and record the resulting identifiers.
-Rollback must target those preserved versions and requires separate approval.
+
+Keep the deployment ledger at `.novah-private/phase-8-deployment.md`. That
+directory is ignored by Git. Record no token, secret, authorization header,
+personal identifier or note content. The ledger contains only timestamps,
+project/deployment/function identifiers, public URLs, before/after versions,
+smoke-test pass/fail labels and the applicable commands below.
+
+After explicit approval naming project `fqinppulljqefbvukcpg`, run the migration
+dry-run before any push. A dry-run that reports no pending migration is valid
+parity evidence and must not be replaced by migration-history edits.
+
+```bash
+pnpm exec supabase db push --dry-run
+pnpm exec supabase db push
+pnpm exec supabase functions deploy --project-ref fqinppulljqefbvukcpg --use-api
+```
+
+The two public Vite variables belong in Vercel Production. Add them through
+stdin so their values are not placed on a retained command line, build with the
+production environment, deploy with `vercel deploy --prod`, and inspect the
+assigned production alias before setting `APP_URL`.
+
+Set `APP_URL` and `ALLOWED_EXTENSION_IDS` in the Edge Function environment only
+after the final HTTPS production origin is known. Then push the reviewed Auth
+configuration and redeploy the user-facing functions so their CORS environment
+is current. Never pass provider or signing secrets to Vercel.
+
+After deployment, run the sanitized production gate with the exact assigned
+origin. It checks live SPA deep links and headers, the linked Vercel project,
+Vercel env names, migration/function parity, exact web and extension CORS, Cron
+and Telegram webhook state. It reads credentials only from authenticated CLIs
+and the ignored `.env`, and prints no values:
+
+```bash
+NOVAH_PHASE8_WEB_URL=https://<assigned-novah-origin> pnpm test:phase8:production-status
+```
+
+The current stable production origin is `https://novah-ten.vercel.app`. Its
+production gate passed with six browser security headers, exactly two public
+Vercel variables, no checked server secret, migration and six-function parity,
+strict web/extension CORS with hostile-origin denial, one healthy Cron job and a
+healthy Telegram webhook. Deployment identifiers and rollback state remain only
+in the ignored private ledger.
+
+Telegram webhook configuration must use the hosted `telegram-webhook` URL, the
+existing secret token and exactly the `message` and `callback_query` update
+types. Inspect `getWebhookInfo` immediately afterward. Configuring the webhook
+does not authorize sending a test message.
+
+The production smoke account is disposable and its random credentials are
+written with user-only permissions to the ignored
+`.novah-private/phase-8-smoke.json` file. The lifecycle commands never print
+credentials or identifiers:
+
+```bash
+NOVAH_APPROVE_PHASE8_ACCOUNT_WRITE=fqinppulljqefbvukcpg pnpm phase8:smoke:create
+pnpm phase8:smoke:status
+NOVAH_APPROVE_PHASE8_ACCOUNT_WRITE=fqinppulljqefbvukcpg pnpm phase8:smoke:cleanup
+```
+
+If the sole linked tester's Telegram chat must be used for the fresh smoke
+account, obtain separate approval before temporarily moving that binding. The
+prepare command persists the original binding before clearing it. Cleanup
+refuses to finish without restoring it:
+
+```bash
+NOVAH_APPROVE_PHASE8_TELEGRAM_REBIND=fqinppulljqefbvukcpg pnpm phase8:smoke:telegram:prepare
+NOVAH_APPROVE_PHASE8_TELEGRAM_REBIND=fqinppulljqefbvukcpg pnpm phase8:smoke:telegram:restore
+```
+
+After at least one smoke capture, a separate guarded helper may move exactly one
+stage-one synthetic review to the test profile's current local date. It prints
+no event or user identifier. Send `/review` only after this preparation, submit
+one callback, and confirm `answeredReviewCount` through the status command:
+
+```bash
+NOVAH_APPROVE_PHASE8_REVIEW_WRITE=fqinppulljqefbvukcpg pnpm phase8:smoke:review:prepare
+```
+
+The account lifecycle itself makes zero OpenAI calls and sends zero Telegram
+messages. Browser capture, search, Telegram text/voice, digest and review smoke
+steps require a separately approved provider-call and message ceiling. Always
+run cleanup in a `finally` path after the original Telegram binding is restored.
+
+The first Phase 8 smoke account was cleaned after its empty-library extension
+request exceeded the browser harness window. A revised approval raised the
+ceiling to 16 logical OpenAI operations and 32 HTTP attempts, retained the
+US$0.25 and Telegram limits, and allowed individual redeployment of
+`search-notes` and `capture-note` without secret changes. The second account
+completed the full journey. Sanitized direct and browser evidence showed the
+empty-library response was valid; Chrome-for-Testing required the DevTools
+response body to be consumed before its instrumented UI settled.
+
+Final smoke evidence covers two extension captures, Telegram text and voice
+capture, extension and Telegram weak retrieval, a digest, review reveal and
+feedback, JSON and Markdown export, production note deletion and reauthenticated
+account deletion. The live notification verifier used a one-note deterministic
+fixture, sent one digest and one review packet, proved retry deduplication,
+restored settings and removed its rows with zero model calls. Cleanup restored
+the original Telegram binding, verified account cascades, deleted private
+credentials and removed all temporary browser/download tooling. The conservative
+provider ledger was exactly 16 logical operations and at most 31 HTTP attempts.
+Sensitive deployment identifiers and rollback commands remain only in the
+ignored private ledger.
+
+The Cron rollback command removes the sole schedule and is destructive. Function
+rollback uses the preserved source commit and redeploys the affected function;
+database rollback requires a reviewed forward migration rather than editing
+migration history. Vercel rollback promotes the preserved prior production
+deployment. Telegram rollback restores the preserved webhook URL and allowed
+updates. Every rollback action requires separate approval.
 
 ## Operations and recovery
 

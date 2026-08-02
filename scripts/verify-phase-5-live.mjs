@@ -142,6 +142,7 @@ async function chooseCleanLocalDate() {
     'Pacific/Pago_Pago',
     'UTC',
     'Asia/Kolkata',
+    'Asia/Dhaka',
   ];
   for (const timezone of candidates) {
     const local = localParts(now, timezone);
