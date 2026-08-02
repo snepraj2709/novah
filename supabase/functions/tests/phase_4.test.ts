@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { MAX_TELEGRAM_MESSAGE_LENGTH } from '../../../packages/shared/src/constants/index.ts';
+
 import {
   generateTelegramLinkCode,
   handleTelegramLinkCode,
@@ -102,8 +104,6 @@ class Knowledge implements TelegramKnowledgeService {
       id: NOTE_ID,
       originalText: 'Synthetic stored note.',
       noteType: 'lesson',
-      summary: 'Synthetic summary.',
-      tags: ['synthetic', 'testing'],
       firstReviewDate: '2026-08-03',
     },
   };
@@ -116,9 +116,6 @@ class Knowledge implements TelegramKnowledgeService {
         originalText: 'Synthetic stored note.',
         personalContext: null,
         noteType: 'lesson',
-        summary: 'Synthetic summary.',
-        tags: ['synthetic', 'testing'],
-        recallPrompt: 'What does the note support?',
         sourceTitle: null,
         sourceUrl: null,
         capturedAt: '2026-08-02T00:00:00.000Z',
@@ -412,27 +409,81 @@ describe('Telegram capture and commands', () => {
       request: { query: 'synthetic lesson', limit: 5 },
     });
     assert.match(context.telegram.messages[0].text, /Sources\n\[1\]/u);
+    assert.match(context.telegram.messages[0].text, /Synthetic stored note/u);
+    assert.equal(
+      context.telegram.messages[0].text.includes('Synthetic summary'),
+      false,
+    );
+  });
+
+  it('bounds multiline and control-character weak matches to readable previews', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    context.knowledge.searchResponse = {
+      answer: null,
+      citations: [],
+      matches: Array.from({ length: 5 }, (_, index) => ({
+        noteId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+        originalText: `Line ${index + 1}\n\t\u0000${'x'.repeat(20_000)}`,
+        personalContext: null,
+        noteType: 'lesson',
+        sourceTitle: null,
+        sourceUrl: null,
+        capturedAt: '2026-08-02T00:00:00.000Z',
+        similarity: 0.2,
+      })),
+      synthesisWithheld: true,
+    };
+
+    await context.handler(
+      webhookRequest(update(18, { text: '/search bounded previews' })),
+    );
+
+    const message = context.telegram.messages[0].text;
+    assert.ok(message.length <= MAX_TELEGRAM_MESSAGE_LENGTH);
+    assert.match(message, /\[1\] Line 1 x+/u);
+    assert.equal(message.includes('\u0000'), false);
+    assert.equal(message.includes('\t'), false);
   });
 
   it('implements today, review, and settings responses', async () => {
     const context = dependencies();
     context.repository.users.set(CHAT_ID, USER_ID);
     context.repository.today = [
-      { noteType: 'lesson', summary: 'Synthetic today summary.' },
+      {
+        noteType: 'lesson',
+        originalText: `Synthetic\n\t\u0000today note ${'x'.repeat(1_000)}`,
+      },
     ];
     context.repository.reviews = [
       {
         eventId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
         stage: 1,
-        recallPrompt: 'What was the synthetic lesson?',
-        sourceTitle: 'Fixture source',
+        sourceTitle: 'Fixture\n\u0000 source',
+      },
+      {
+        eventId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        stage: 2,
+        sourceTitle: null,
       },
     ];
     await context.handler(webhookRequest(update(9, { text: '/today' })));
     await context.handler(webhookRequest(update(10, { text: '/review' })));
     await context.handler(webhookRequest(update(11, { text: '/settings' })));
     assert.match(context.telegram.messages[0].text, /What you kept today/u);
-    assert.match(context.telegram.messages[1].text, /Stage 1/u);
+    assert.match(
+      context.telegram.messages[0].text,
+      /lesson: Synthetic today note x+…/u,
+    );
+    assert.equal(context.telegram.messages[0].text.includes('\u0000'), false);
+    assert.match(
+      context.telegram.messages[1].text,
+      /1\. Stage 1\nWhat do you remember from Fixture source\?/u,
+    );
+    assert.match(
+      context.telegram.messages[1].text,
+      /2\. Stage 2\nWhat do you remember from this note\?/u,
+    );
     assert.match(context.telegram.messages[2].text, /Asia\/Kolkata/u);
   });
 });

@@ -4,17 +4,44 @@ export function jsonExport(notes: DashboardNote[], exportedAt: Date): string {
   return JSON.stringify(
     {
       format: 'novah-export',
-      version: 1,
+      version: 2,
       exportedAt: exportedAt.toISOString(),
-      notes,
+      notes: notes.map((note) => ({
+        id: note.id,
+        originalText: note.originalText,
+        personalContext: note.personalContext,
+        noteType: note.noteType,
+        sourceTitle: note.sourceTitle,
+        sourceUrl: note.sourceUrl,
+        captureChannel: note.captureChannel,
+        capturedAt: note.capturedAt,
+      })),
     },
     null,
     2,
   );
 }
 
-function markdownValue(value: string): string {
-  return value.replace(/\r\n?/gu, '\n').trim();
+function normalizedLines(value: string): string {
+  return value.replace(/\r\n?/gu, '\n');
+}
+
+function markdownInline(value: string): string {
+  return normalizedLines(value)
+    .replace(/[\p{Cc}\p{Cf}]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .replace(/([\\`[\]<>])/gu, '\\$1');
+}
+
+function markdownCodeBlock(value: string): string[] {
+  const content = normalizedLines(value);
+  const longestFence = Math.max(
+    0,
+    ...Array.from(content.matchAll(/`+/gu), (match) => match[0].length),
+  );
+  const fence = '`'.repeat(Math.max(3, longestFence + 1));
+  return [fence, content, fence];
 }
 
 export function markdownExport(
@@ -31,28 +58,29 @@ export function markdownExport(
     '',
     '---',
     '',
-    `## ${index + 1}. ${markdownValue(note.sourceTitle ?? note.summary)}`,
+    `## ${index + 1}. ${note.sourceTitle ? markdownInline(note.sourceTitle) : 'Note'}`,
     '',
     `- Type: ${note.noteType}`,
     `- Captured: ${note.capturedAt}`,
     ...(note.captureChannel ? [`- Channel: ${note.captureChannel}`] : []),
-    ...(note.sourceUrl ? [`- Source: ${note.sourceUrl}`] : []),
-    ...(note.tags.length ? [`- Tags: ${note.tags.join(', ')}`] : []),
+    ...(note.sourceTitle
+      ? [`- Source title: ${markdownInline(note.sourceTitle)}`]
+      : []),
+    ...(note.sourceUrl
+      ? [`- Source URL: ${markdownInline(note.sourceUrl)}`]
+      : []),
     '',
     '### Original note',
     '',
-    markdownValue(note.originalText),
+    ...markdownCodeBlock(note.originalText),
     ...(note.personalContext
-      ? ['', '### Why it mattered', '', markdownValue(note.personalContext)]
+      ? [
+          '',
+          '### Why it mattered',
+          '',
+          ...markdownCodeBlock(note.personalContext),
+        ]
       : []),
-    '',
-    '### Summary',
-    '',
-    markdownValue(note.summary),
-    '',
-    '### Recall prompt',
-    '',
-    markdownValue(note.recallPrompt),
   ]);
   return [...header, ...sections, ''].join('\n');
 }

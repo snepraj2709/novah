@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 const EXPECTED_PROJECT_REF = 'fqinppulljqefbvukcpg';
-const MAXIMUM_MODEL_CALLS = 7;
+const MAXIMUM_MODEL_CALLS = 5;
 
 const cliKeys = loadProjectKeys();
 const supabaseUrl = (
@@ -223,8 +223,8 @@ async function main() {
     'Capture ignored the selected note type',
   );
   assert(
-    capture.note.summary && capture.note.tags?.length >= 2,
-    'Capture metadata is incomplete',
+    !('summary' in capture.note) && !('tags' in capture.note),
+    'Capture response exposed legacy generated metadata',
   );
 
   const [storedNotes, reviews] = await Promise.all([
@@ -243,8 +243,11 @@ async function main() {
     'Stored original text changed',
   );
   assert(
-    storedNotes[0].summary && storedNotes[0].recall_prompt,
-    'AI metadata was not stored separately',
+    storedNotes[0].summary === null &&
+      storedNotes[0].recall_prompt === null &&
+      Array.isArray(storedNotes[0].tags) &&
+      storedNotes[0].tags.length === 0,
+    'New capture did not store null, empty, null legacy metadata',
   );
   assert(
     reviews.length === 5,

@@ -99,7 +99,7 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     const today = localDate(this.now(), profile.timezone);
     const { data, error } = await this.client
       .from('notes')
-      .select('note_type, summary, captured_at')
+      .select('note_type, original_text, captured_at')
       .eq('user_id', userId)
       .order('captured_at', { ascending: false })
       .limit(100);
@@ -110,7 +110,10 @@ export class SupabaseTelegramRepository implements TelegramRepository {
           localDate(new Date(note.captured_at), profile.timezone) === today,
       )
       .slice(0, 5)
-      .map((note) => ({ noteType: note.note_type, summary: note.summary }));
+      .map((note) => ({
+        noteType: note.note_type,
+        originalText: note.original_text,
+      }));
   }
 
   async dueReviews(userId: string): Promise<TelegramDueReview[]> {
@@ -130,7 +133,7 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     const noteIds = [...new Set(reviews.map((review) => review.note_id))];
     const { data: notes, error: notesError } = await this.client
       .from('notes')
-      .select('id, recall_prompt, source_title')
+      .select('id, source_title')
       .eq('user_id', userId)
       .in('id', noteIds);
     if (notesError) throw databaseFailure('Reviews could not be loaded.');
@@ -142,7 +145,6 @@ export class SupabaseTelegramRepository implements TelegramRepository {
             {
               eventId: review.id,
               stage: review.stage,
-              recallPrompt: note.recall_prompt,
               sourceTitle: note.source_title,
             },
           ]
@@ -206,7 +208,7 @@ class SupabaseServiceNoteRepository implements NoteRepository {
   ): Promise<StoredCapture | null> {
     const { data: note, error } = await this.client
       .from('notes')
-      .select('id, original_text, note_type, summary, tags')
+      .select('id, original_text, note_type')
       .eq('user_id', this.userId)
       .eq('client_request_id', clientRequestId)
       .maybeSingle();
@@ -225,8 +227,6 @@ class SupabaseServiceNoteRepository implements NoteRepository {
       id: note.id,
       originalText: note.original_text,
       noteType: note.note_type,
-      summary: note.summary,
-      tags: note.tags,
       firstReviewDate: review.due_on,
       created: false,
     };
@@ -240,9 +240,9 @@ class SupabaseServiceNoteRepository implements NoteRepository {
         input_original_text: input.originalText,
         input_personal_context: input.personalContext ?? null,
         input_note_type: input.noteType,
-        input_summary: input.summary,
-        input_tags: input.tags,
-        input_recall_prompt: input.recallPrompt,
+        input_summary: null,
+        input_tags: [],
+        input_recall_prompt: null,
         input_source_title: input.sourceTitle ?? null,
         input_source_url: input.sourceUrl ?? null,
         input_capture_channel: input.captureChannel,
@@ -256,8 +256,6 @@ class SupabaseServiceNoteRepository implements NoteRepository {
       id: row.note_id,
       originalText: row.stored_original_text,
       noteType: row.stored_note_type,
-      summary: row.stored_summary,
-      tags: row.stored_tags,
       firstReviewDate: row.first_review_date,
       created: row.created,
     };
@@ -278,9 +276,6 @@ class SupabaseServiceNoteRepository implements NoteRepository {
       originalText: row.original_text,
       personalContext: row.personal_context,
       noteType: row.note_type,
-      summary: row.summary,
-      tags: row.tags,
-      recallPrompt: row.recall_prompt,
       sourceTitle: row.source_title,
       sourceUrl: row.source_url,
       capturedAt: row.captured_at,

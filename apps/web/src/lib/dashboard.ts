@@ -3,6 +3,7 @@ import {
   type DailyDigest,
   type SearchMatch,
 } from '@novah/shared/contracts';
+import { reviewCue } from '@novah/shared';
 import type { Database } from '@novah/shared/types';
 
 import { supabase } from './supabase.ts';
@@ -16,9 +17,6 @@ export interface DashboardNote {
   originalText: string;
   personalContext: string | null;
   noteType: NoteType;
-  summary: string;
-  tags: string[];
-  recallPrompt: string;
   sourceTitle: string | null;
   sourceUrl: string | null;
   captureChannel: Database['public']['Enums']['capture_channel'] | null;
@@ -68,7 +66,7 @@ export const NOTE_TYPES: Array<{ value: NoteType | 'all'; label: string }> = [
 ];
 
 const NOTE_COLUMNS =
-  'id, original_text, personal_context, note_type, summary, tags, recall_prompt, source_title, source_url, capture_channel, captured_at';
+  'id, original_text, personal_context, note_type, source_title, source_url, capture_channel, captured_at';
 
 type DashboardNoteRow = Pick<
   Database['public']['Tables']['notes']['Row'],
@@ -76,9 +74,6 @@ type DashboardNoteRow = Pick<
   | 'original_text'
   | 'personal_context'
   | 'note_type'
-  | 'summary'
-  | 'tags'
-  | 'recall_prompt'
   | 'source_title'
   | 'source_url'
   | 'capture_channel'
@@ -91,9 +86,6 @@ function dashboardNote(row: DashboardNoteRow): DashboardNote {
     originalText: row.original_text,
     personalContext: row.personal_context,
     noteType: row.note_type,
-    summary: row.summary,
-    tags: row.tags,
-    recallPrompt: row.recall_prompt,
     sourceTitle: row.source_title,
     sourceUrl: row.source_url,
     captureChannel: row.capture_channel,
@@ -131,9 +123,6 @@ export function searchMatchNote(match: SearchMatch): DashboardNote {
     originalText: match.originalText,
     personalContext: match.personalContext,
     noteType: match.noteType,
-    summary: match.summary,
-    tags: match.tags,
-    recallPrompt: match.recallPrompt,
     sourceTitle: match.sourceTitle,
     sourceUrl: match.sourceUrl,
     captureChannel: null,
@@ -236,7 +225,7 @@ export async function loadReviews(
   >;
   type ReviewNoteRow = Pick<
     Database['public']['Tables']['notes']['Row'],
-    'id' | 'recall_prompt' | 'source_title'
+    'id' | 'source_title'
   >;
   const events: ReviewEventRow[] = [];
   const pageSize = 1_000;
@@ -260,7 +249,7 @@ export async function loadReviews(
   for (let start = 0; start < noteIds.length; start += noteBatchSize) {
     const { data, error } = await supabase
       .from('notes')
-      .select('id, recall_prompt, source_title')
+      .select('id, source_title')
       .eq('user_id', userId)
       .in('id', noteIds.slice(start, start + noteBatchSize));
     if (error) throw new Error('Review notes could not be loaded.');
@@ -278,7 +267,7 @@ export async function loadReviews(
             dueOn: event.due_on,
             status: event.status,
             answeredAt: event.answered_at,
-            prompt: note.recall_prompt,
+            prompt: reviewCue(note.source_title),
             sourceTitle: note.source_title,
           } satisfies ReviewItem,
         ]

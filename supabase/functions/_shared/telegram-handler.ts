@@ -5,6 +5,7 @@ import {
   MAX_TELEGRAM_VOICE_DURATION_SECONDS,
   TELEGRAM_LINK_CODE_LENGTH,
 } from '../../../packages/shared/src/constants/index.ts';
+import { reviewCue } from '../../../packages/shared/src/review-cue.ts';
 import { ApiError, errorResponse } from './errors.ts';
 import { parseJson } from './http.ts';
 import { parseTelegramUpdate } from './telegram-contracts.ts';
@@ -27,6 +28,7 @@ const LINK_CODE_PATTERN = new RegExp(
   `^[A-HJ-NP-Z2-9]{${TELEGRAM_LINK_CODE_LENGTH}}$`,
   'u',
 );
+const TELEGRAM_NOTE_PREVIEW_LENGTH = 240;
 
 export interface TelegramWebhookDependencies {
   webhookSecret: string;
@@ -61,6 +63,18 @@ function boundedMessage(text: string): string {
   return `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
 }
 
+export function telegramNotePreview(text: string): string {
+  const normalized = text
+    .replace(/[\p{Cc}\p{Cf}]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+  const characters = Array.from(normalized);
+  if (characters.length <= TELEGRAM_NOTE_PREVIEW_LENGTH) {
+    return normalized || 'Untitled note';
+  }
+  return `${characters.slice(0, TELEGRAM_NOTE_PREVIEW_LENGTH - 1).join('')}…`;
+}
+
 function linkInstructions(): string {
   return [
     'Link this private chat to Novah before saving or searching.',
@@ -83,7 +97,8 @@ function todayMessage(notes: TelegramTodayNote[]): string {
     'What you kept today',
     '',
     ...notes.map(
-      (note, index) => `${index + 1}. ${note.noteType}: ${note.summary}`,
+      (note, index) =>
+        `${index + 1}. ${note.noteType}: ${telegramNotePreview(note.originalText)}`,
     ),
   ].join('\n');
 }
@@ -93,10 +108,10 @@ function reviewMessage(reviews: TelegramDueReview[]): string {
   return [
     'Reviews due',
     '',
-    ...reviews.map((review, index) => {
-      const source = review.sourceTitle ? ` — ${review.sourceTitle}` : '';
-      return `${index + 1}. Stage ${review.stage}${source}\n${review.recallPrompt}`;
-    }),
+    ...reviews.map(
+      (review, index) =>
+        `${index + 1}. Stage ${review.stage}\n${reviewCue(review.sourceTitle)}`,
+    ),
   ].join('\n');
 }
 
@@ -121,7 +136,8 @@ function searchMessage(
       'Possible matches — evidence was too weak for a synthesized answer.',
       '',
       ...result.matches.map(
-        (match, index) => `[${index + 1}] ${match.summary}`,
+        (match, index) =>
+          `[${index + 1}] ${telegramNotePreview(match.originalText)}`,
       ),
     ].join('\n');
   }
@@ -131,7 +147,9 @@ function searchMessage(
   );
   const sources = result.citations.flatMap((citation) => {
     const match = matchById.get(citation.noteId);
-    return match ? [`[${citation.number}] ${match.summary}`] : [];
+    return match
+      ? [`[${citation.number}] ${telegramNotePreview(match.originalText)}`]
+      : [];
   });
   return [result.answer, '', 'Sources', ...sources].join('\n');
 }

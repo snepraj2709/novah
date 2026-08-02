@@ -357,23 +357,6 @@ button:disabled {
   color: #5d6963;
   font-size: 12px;
 }
-.summary {
-  color: #4f5a55;
-  font-size: 12px;
-}
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.tag-row span {
-  padding: 4px 7px;
-  border-radius: 999px;
-  color: #466053;
-  background: #edf0eb;
-  font-size: 9px;
-  font-weight: 700;
-}
 .note-card footer {
   display: flex;
   justify-content: space-between;

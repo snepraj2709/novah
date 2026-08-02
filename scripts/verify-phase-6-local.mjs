@@ -64,18 +64,18 @@ async function assertAccountDeletionIsolation(admin, configuration) {
   if (signInB.error) throw signInB.error;
   const { data: notesB, error: notesBError } = await clientB
     .from('notes')
-    .select('summary');
+    .select('original_text');
   if (
     notesBError ||
     notesB.length !== 1 ||
-    notesB[0]?.summary !== 'USER B PRIVATE SENTINEL'
+    notesB[0]?.original_text !== 'User B isolation fixture.'
   ) {
     throw notesBError ?? new Error('Account deletion affected user B.');
   }
   const { count: userARows, error: cascadeError } = await admin
     .from('notes')
     .select('id', { count: 'exact', head: true })
-    .eq('summary', 'User A owns this visible dashboard note.');
+    .eq('original_text', 'User A browser fixture.');
   if (cascadeError || userARows !== 0) {
     throw cascadeError ?? new Error('Deleted account rows did not cascade.');
   }
@@ -117,9 +117,9 @@ async function main() {
     if (signInA.error) throw signInA.error;
     if (signInB.error) throw signInB.error;
     const [notesA, reviewsA, notesB] = await Promise.all([
-      clientA.from('notes').select('summary'),
+      clientA.from('notes').select('original_text'),
       clientA.from('review_events').select('id'),
-      clientB.from('notes').select('summary'),
+      clientB.from('notes').select('original_text'),
     ]);
     if (notesA.error || reviewsA.error || notesB.error) {
       throw notesA.error ?? reviewsA.error ?? notesB.error;
@@ -128,7 +128,7 @@ async function main() {
       notesA.data.length !== 0 ||
       reviewsA.data.length !== 0 ||
       notesB.data.length !== 1 ||
-      notesB.data[0]?.summary !== 'USER B PRIVATE SENTINEL'
+      notesB.data[0]?.original_text !== 'User B isolation fixture.'
     ) {
       throw new Error('Owned delete isolation verification failed.');
     }
@@ -160,12 +160,9 @@ async function main() {
       {
         user_id: userA.id,
         client_request_id: crypto.randomUUID(),
-        original_text: 'Only user A should see this browser-network fixture.',
+        original_text: 'User A browser fixture.',
         personal_context: 'Verifies the Phase 6 personal dashboard boundary.',
         note_type: 'lesson',
-        summary: 'User A owns this visible dashboard note.',
-        tags: ['phase6', 'ownership'],
-        recall_prompt: 'Who owns the visible fixture?',
         source_title: 'Phase 6 browser fixture A',
         source_url: 'https://example.invalid/phase6/a',
         capture_channel: 'web',
@@ -174,12 +171,9 @@ async function main() {
       {
         user_id: userB.id,
         client_request_id: crypto.randomUUID(),
-        original_text: 'User B secret must never appear for user A.',
+        original_text: 'User B isolation fixture.',
         personal_context: 'Negative isolation fixture.',
         note_type: 'observation',
-        summary: 'USER B PRIVATE SENTINEL',
-        tags: ['phase6', 'private-b'],
-        recall_prompt: 'What is private to user B?',
         source_title: 'Phase 6 browser fixture B',
         source_url: 'https://example.invalid/phase6/b',
         capture_channel: 'web',
@@ -229,7 +223,7 @@ async function main() {
   if (signIn.error) throw signIn.error;
   const { data: visibleNotes, error: visibleError } = await userAClient
     .from('notes')
-    .select('id,user_id,summary');
+    .select('id,user_id');
   if (visibleError) throw visibleError;
   if (visibleNotes.length !== 1 || visibleNotes[0]?.user_id !== userA.id) {
     throw new Error('Authenticated network isolation verification failed.');
@@ -308,13 +302,11 @@ async function main() {
 
   console.log(
     JSON.stringify({
-      email: EMAIL_A,
-      password: PASSWORD,
-      expectedSummary: 'User A owns this visible dashboard note.',
-      forbiddenSummary: 'USER B PRIVATE SENTINEL',
-      userAId: userA.id,
-      noteAId: noteA.id,
+      fixtureReady: true,
       networkIsolation: true,
+      credentialsPrinted: false,
+      identifiersPrinted: false,
+      noteContentPrinted: false,
     }),
   );
 }

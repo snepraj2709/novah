@@ -14,13 +14,13 @@ export function NoteCard({
 }) {
   return (
     <article className="note-card">
+      <h3 className="sr-only">{noteTypeLabel(note.noteType)} note</h3>
       <div className="note-card-topline">
         <span className="type-pill">{noteTypeLabel(note.noteType)}</span>
         <time dateTime={note.capturedAt}>
           {formatDateTime(note.capturedAt)}
         </time>
       </div>
-      <h2>{note.summary}</h2>
       <p className="original-note">{note.originalText}</p>
       {note.personalContext && (
         <blockquote>
@@ -28,11 +28,6 @@ export function NoteCard({
           {note.personalContext}
         </blockquote>
       )}
-      <div className="tag-row" aria-label="Tags">
-        {note.tags.map((tag) => (
-          <span key={tag}>#{tag}</span>
-        ))}
-      </div>
       <footer>
         <div className="source-line">
           {note.sourceUrl ? (

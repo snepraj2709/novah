@@ -13,7 +13,7 @@ import type {
   NoteRepository,
   StoredCapture,
 } from '../_shared/types.ts';
-import type { Enrichment, SearchMatch } from '../_shared/contracts.ts';
+import type { Classification, SearchMatch } from '../_shared/contracts.ts';
 
 const USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const REQUEST_ID = '11111111-1111-4111-8111-111111111111';
@@ -29,19 +29,16 @@ const authenticator: Authenticator = {
   },
 };
 
-const enrichment: Enrichment = {
-  noteType: 'lesson',
-  summary: 'Distinguish imagined suffering from present reality.',
-  tags: ['risk', 'stoicism'],
-  recallPrompt: 'How should imagined risk be separated from present reality?',
-};
+const classification: Classification = { noteType: 'lesson' };
 
 class Repository implements NoteRepository {
   existing: StoredCapture | null = null;
   captures: AtomicCaptureInput[] = [];
   matches: SearchMatch[] = [];
+  findCalls = 0;
 
   async findByClientRequestId(): Promise<StoredCapture | null> {
+    this.findCalls += 1;
     return this.existing;
   }
 
@@ -51,8 +48,6 @@ class Repository implements NoteRepository {
       id: NOTE_ID,
       originalText: input.originalText,
       noteType: input.noteType,
-      summary: input.summary,
-      tags: input.tags,
       firstReviewDate: '2026-08-02',
       created: true,
     };
@@ -64,20 +59,22 @@ class Repository implements NoteRepository {
 }
 
 class Ai implements AiProvider {
-  enrichCalls = 0;
+  classifyCalls = 0;
   embedCalls = 0;
+  embedInputs: string[] = [];
   synthesizeCalls = 0;
   synthesis = [
     { text: 'The note distinguishes imagined suffering.', noteIds: [NOTE_ID] },
   ];
 
-  async enrich(): Promise<Enrichment> {
-    this.enrichCalls += 1;
-    return structuredClone(enrichment);
+  async classify(): Promise<Classification> {
+    this.classifyCalls += 1;
+    return structuredClone(classification);
   }
 
-  async embed(): Promise<number[]> {
+  async embed(input: string): Promise<number[]> {
     this.embedCalls += 1;
+    this.embedInputs.push(input);
     return EMBEDDING;
   }
 
@@ -117,9 +114,6 @@ function match(noteId = NOTE_ID, similarity = 0.9): SearchMatch {
     originalText: 'We suffer more often in imagination than in reality.',
     personalContext: 'Separate imagined risk from present risk.',
     noteType: 'quote',
-    summary: enrichment.summary,
-    tags: enrichment.tags,
-    recallPrompt: enrichment.recallPrompt,
     sourceTitle: 'Letters from a Stoic',
     sourceUrl: 'https://example.invalid/source',
     capturedAt: '2026-08-01T12:00:00.000Z',
@@ -128,7 +122,7 @@ function match(noteId = NOTE_ID, similarity = 0.9): SearchMatch {
 }
 
 describe('capture-note', () => {
-  it('preserves normalized original text and stores AI metadata separately', async () => {
+  it('uses an explicit type without classification and embeds only canonical note input', async () => {
     const repository = new Repository();
     const ai = new Ai();
     const response = await handleCaptureNote(post(captureBody()), {
@@ -147,12 +141,62 @@ describe('capture-note', () => {
       'Separate imagined risk from present risk.',
     );
     assert.equal(repository.captures[0].noteType, 'quote');
-    assert.equal(repository.captures[0].summary, enrichment.summary);
-    const payload = await response.json();
+    assert.equal(ai.classifyCalls, 0);
+    assert.equal(ai.embedCalls, 1);
     assert.equal(
-      payload.note.originalText,
-      repository.captures[0].originalText,
+      ai.embedInputs[0],
+      JSON.stringify({
+        originalText: 'We suffer more often in imagination than in reality.',
+        personalContext: 'Separate imagined risk from present risk.',
+        sourceTitle: 'Letters from a Stoic',
+      }),
     );
+    assert.equal('summary' in repository.captures[0], false);
+    assert.equal('tags' in repository.captures[0], false);
+    assert.equal('recallPrompt' in repository.captures[0], false);
+    const payload = await response.json();
+    assert.deepEqual(Object.keys(payload.note).sort(), [
+      'firstReviewDate',
+      'id',
+      'noteType',
+      'originalText',
+    ]);
+  });
+
+  it('classifies an omitted type exactly once before one embedding', async () => {
+    const repository = new Repository();
+    const ai = new Ai();
+    const { noteType: _noteType, ...body } = captureBody();
+    const response = await handleCaptureNote(post(body), {
+      authenticator,
+      repository,
+      ai,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(ai.classifyCalls, 1);
+    assert.equal(ai.embedCalls, 1);
+    assert.equal(repository.captures[0].noteType, 'lesson');
+  });
+
+  it('authenticates before parsing or calling providers', async () => {
+    const repository = new Repository();
+    const ai = new Ai();
+    await assert.rejects(
+      () =>
+        handleCaptureNote(post({ originalText: '   ' }), {
+          authenticator: {
+            async authenticate() {
+              throw new Error('synthetic authentication failure');
+            },
+          },
+          repository,
+          ai,
+        }),
+      /authentication failure/u,
+    );
+    assert.equal(repository.findCalls, 0);
+    assert.equal(ai.classifyCalls, 0);
+    assert.equal(ai.embedCalls, 0);
   });
 
   it('returns an existing idempotent capture without another AI request', async () => {
@@ -161,8 +205,6 @@ describe('capture-note', () => {
       id: NOTE_ID,
       originalText: 'Stored original.',
       noteType: 'lesson',
-      summary: 'Stored summary.',
-      tags: ['stored', 'note'],
       firstReviewDate: '2026-08-02',
       created: false,
     };
@@ -173,17 +215,39 @@ describe('capture-note', () => {
       ai,
     });
     assert.equal(response.status, 200);
-    assert.equal(ai.enrichCalls, 0);
+    assert.equal(ai.classifyCalls, 0);
     assert.equal(ai.embedCalls, 0);
     assert.equal(repository.captures.length, 0);
     assert.equal((await response.json()).note.id, NOTE_ID);
   });
 
-  it('does not call persistence when AI enrichment fails', async () => {
+  it('returns a retryable error and writes nothing when classification fails', async () => {
     const repository = new Repository();
     const ai = new Ai();
-    ai.enrich = async () => {
+    ai.classify = async () => {
       throw new Error('synthetic model failure');
+    };
+    const { noteType: _noteType, ...body } = captureBody();
+    await assert.rejects(
+      () =>
+        handleCaptureNote(post(body), {
+          authenticator,
+          repository,
+          ai,
+        }),
+      (error: unknown) =>
+        error instanceof Error &&
+        'retryable' in error &&
+        error.retryable === true,
+    );
+    assert.equal(repository.captures.length, 0);
+  });
+
+  it('returns a retryable error and writes nothing when embedding fails', async () => {
+    const repository = new Repository();
+    const ai = new Ai();
+    ai.embed = async () => {
+      throw new Error('synthetic embedding failure');
     };
     await assert.rejects(
       () =>
@@ -192,9 +256,38 @@ describe('capture-note', () => {
           repository,
           ai,
         }),
-      /temporarily unavailable/u,
+      (error: unknown) =>
+        error instanceof Error &&
+        'retryable' in error &&
+        error.retryable === true,
     );
     assert.equal(repository.captures.length, 0);
+  });
+
+  it('rejects wrong-length and non-finite embeddings before persistence', async (context) => {
+    for (const [name, invalidEmbedding] of [
+      ['wrong length', EMBEDDING.slice(1)],
+      ['non-finite value', [Number.NaN, ...EMBEDDING.slice(1)]],
+    ] as const) {
+      await context.test(name, async () => {
+        const repository = new Repository();
+        const ai = new Ai();
+        ai.embed = async () => invalidEmbedding;
+        await assert.rejects(
+          () =>
+            handleCaptureNote(post(captureBody()), {
+              authenticator,
+              repository,
+              ai,
+            }),
+          (error: unknown) =>
+            error instanceof Error &&
+            'retryable' in error &&
+            error.retryable === true,
+        );
+        assert.equal(repository.captures.length, 0);
+      });
+    }
   });
 
   it('rejects invalid capture input before AI or persistence', async () => {
@@ -208,7 +301,9 @@ describe('capture-note', () => {
         ),
       /invalid/u,
     );
-    assert.equal(ai.enrichCalls, 0);
+    assert.equal(ai.classifyCalls, 0);
+    assert.equal(ai.embedCalls, 0);
+    assert.equal(repository.findCalls, 0);
     assert.equal(repository.captures.length, 0);
   });
 });
@@ -271,6 +366,67 @@ describe('search-notes', () => {
 });
 
 describe('shared infrastructure', () => {
+  it('exposes a strict classification-only schema', async () => {
+    const contracts = (await import('../_shared/contracts.ts')) as Record<
+      string,
+      unknown
+    >;
+    assert.equal(typeof contracts.classificationSchema, 'object');
+    const schema = contracts.classificationSchema as {
+      safeParse(value: unknown): { success: boolean };
+    };
+    assert.equal(schema.safeParse({ noteType: 'lesson' }).success, true);
+    assert.equal(
+      schema.safeParse({ noteType: 'lesson', summary: 'not allowed' }).success,
+      false,
+    );
+  });
+
+  it('accepts only a metadata-free capture response contract', async () => {
+    const contracts = (await import('../_shared/contracts.ts')) as Record<
+      string,
+      { safeParse(value: unknown): { success: boolean } }
+    >;
+    assert.equal(
+      contracts.captureNoteResponseSchema.safeParse({
+        note: {
+          id: NOTE_ID,
+          originalText: 'Stored original.',
+          noteType: 'lesson',
+          firstReviewDate: '2026-08-02',
+        },
+      }).success,
+      true,
+    );
+  });
+
+  it('accepts only metadata-free search matches', async () => {
+    const contracts = (await import('../_shared/contracts.ts')) as Record<
+      string,
+      { safeParse(value: unknown): { success: boolean } }
+    >;
+    assert.equal(
+      contracts.searchNotesResponseSchema.safeParse({
+        answer: null,
+        citations: [],
+        matches: [
+          {
+            noteId: NOTE_ID,
+            originalText: 'Stored original.',
+            personalContext: null,
+            noteType: 'lesson',
+            sourceTitle: null,
+            sourceUrl: null,
+            capturedAt: '2026-08-01T12:00:00.000Z',
+            similarity: 0.2,
+          },
+        ],
+        synthesisWithheld: true,
+      }).success,
+      true,
+    );
+  });
+
   it('rejects an unlisted browser origin and permits the configured extension', async () => {
     const handler = createHttpHandler(async () => Response.json({ ok: true }), {
       extensionIds: ['abcdefghijklmnopabcdefghijklmnop'],
@@ -296,10 +452,13 @@ describe('shared infrastructure', () => {
         ],
       });
     });
-    await assert.rejects(
-      () => provider.enrich({ originalText: 'Synthetic note.' }),
-      /temporarily unavailable/u,
-    );
+    const classify = (
+      provider as unknown as {
+        classify?: (input: { originalText: string }) => Promise<unknown>;
+      }
+    ).classify;
+    assert.equal(typeof classify, 'function');
+    await classify!.call(provider, { originalText: 'Synthetic note.' });
     await assert.rejects(
       () =>
         provider.synthesize({
@@ -318,6 +477,27 @@ describe('shared infrastructure', () => {
         (body) => !JSON.stringify(body).includes('uniqueItems'),
       ),
       true,
+    );
+    const classificationBody = requestBodies[0] as {
+      max_output_tokens?: number;
+      text?: {
+        format?: {
+          name?: string;
+          schema?: { required?: string[]; properties?: object };
+        };
+      };
+    };
+    assert.ok((classificationBody.max_output_tokens ?? Infinity) <= 200);
+    assert.equal(
+      classificationBody.text?.format?.name,
+      'capture_classification',
+    );
+    assert.deepEqual(classificationBody.text?.format?.schema?.required, [
+      'noteType',
+    ]);
+    assert.deepEqual(
+      Object.keys(classificationBody.text?.format?.schema?.properties ?? {}),
+      ['noteType'],
     );
   });
 

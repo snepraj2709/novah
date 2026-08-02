@@ -11,9 +11,6 @@ const NOTE: DashboardNote = {
   originalText: 'A note with a concrete idea.',
   personalContext: 'It changed how I approach testing.',
   noteType: 'lesson',
-  summary: 'Test behavior through public boundaries.',
-  tags: ['testing', 'boundaries'],
-  recallPrompt: 'Which boundary should the test use?',
   sourceTitle: 'Synthetic source',
   sourceUrl: 'https://example.com/source',
   captureChannel: 'web',
@@ -26,8 +23,11 @@ describe('dashboard exports', () => {
       jsonExport([NOTE], new Date('2026-08-02T10:00:00.000Z')),
     ) as Record<string, unknown>;
     assert.equal(document.format, 'novah-export');
-    assert.equal(document.version, 1);
+    assert.equal(document.version, 2);
     assert.deepEqual(document.notes, [NOTE]);
+    assert.equal(JSON.stringify(document).includes('summary'), false);
+    assert.equal(JSON.stringify(document).includes('recallPrompt'), false);
+    assert.equal(JSON.stringify(document).includes('tags'), false);
   });
 
   it('produces readable Markdown with note content and provenance', () => {
@@ -39,10 +39,33 @@ describe('dashboard exports', () => {
     assert.match(document, /## 1\. Synthetic source/u);
     assert.match(
       document,
-      /### Original note\n\nA note with a concrete idea\./u,
+      /### Original note\n\n```\nA note with a concrete idea\.\n```/u,
     );
-    assert.match(document, /- Source: https:\/\/example\.com\/source/u);
-    assert.match(document, /### Recall prompt/u);
+    assert.match(document, /- Source URL: https:\/\/example\.com\/source/u);
+    assert.equal(document.includes('### Summary'), false);
+    assert.equal(document.includes('### Recall prompt'), false);
+  });
+
+  it('preserves multiline content safely and handles absent context and source', () => {
+    const unsafe: DashboardNote = {
+      ...NOTE,
+      originalText: '# Not an export heading\n```\n<script>alert(1)</script>',
+      personalContext: null,
+      sourceTitle: null,
+      sourceUrl: null,
+      captureChannel: null,
+    };
+    const document = markdownExport(
+      [unsafe],
+      new Date('2026-08-02T10:00:00.000Z'),
+    );
+    assert.match(document, /## 1\. Note/u);
+    assert.match(
+      document,
+      /````\n# Not an export heading\n```\n<script>alert\(1\)<\/script>\n````/u,
+    );
+    assert.equal(document.includes('### Why it mattered'), false);
+    assert.equal(document.includes('- Source'), false);
   });
 });
 

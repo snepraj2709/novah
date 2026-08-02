@@ -1,6 +1,6 @@
 import type {
   CaptureNoteRequest,
-  Enrichment,
+  Classification,
   SearchMatch,
 } from './contracts.ts';
 
@@ -16,15 +16,13 @@ export interface Authenticator {
 export interface StoredCapture {
   id: string;
   originalText: string;
-  noteType: Enrichment['noteType'];
-  summary: string;
-  tags: string[];
+  noteType: Classification['noteType'];
   firstReviewDate: string;
   created: boolean;
 }
 
 export type AtomicCaptureInput = Omit<CaptureNoteRequest, 'noteType'> &
-  Enrichment & {
+  Classification & {
     embedding: number[];
   };
 
@@ -43,11 +41,10 @@ export interface SynthesisClaim {
 }
 
 export interface AiProvider {
-  enrich(input: {
+  classify(input: {
     originalText: string;
     personalContext?: string;
-    requestedNoteType?: CaptureNoteRequest['noteType'];
-  }): Promise<Enrichment>;
+  }): Promise<Classification>;
   embed(input: string): Promise<number[]>;
   synthesize(input: {
     query: string;

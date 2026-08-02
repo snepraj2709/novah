@@ -157,9 +157,6 @@ async function insertOwnedFixtures(userA, userB) {
       client_request_id: randomUUID(),
       original_text: 'Hosted deletion fixture owned by user A.',
       note_type: 'lesson',
-      summary: 'HOSTED AUDIT USER A',
-      tags: ['hosted-audit'],
-      recall_prompt: 'Which account owns fixture A?',
       capture_channel: 'web',
       captured_at: capturedAt,
     },
@@ -169,9 +166,6 @@ async function insertOwnedFixtures(userA, userB) {
       client_request_id: randomUUID(),
       original_text: 'Hosted isolation fixture owned by user B.',
       note_type: 'lesson',
-      summary: 'HOSTED AUDIT USER B',
-      tags: ['hosted-audit'],
-      recall_prompt: 'Which account owns fixture B?',
       capture_channel: 'web',
       captured_at: capturedAt,
     },
@@ -244,9 +238,6 @@ async function run() {
     client_request_id: randomUUID(),
     original_text: 'x'.repeat(20_001),
     note_type: 'lesson',
-    summary: 'Rejected oversized fixture.',
-    tags: ['hosted-audit'],
-    recall_prompt: 'Should this be rejected?',
     capture_channel: 'web',
   });
   assert(
@@ -346,12 +337,12 @@ async function run() {
   }
   const { data: notesB, error: notesBError } = await clientB
     .from('notes')
-    .select('id, summary');
+    .select('id, original_text');
   assert(
     !notesBError &&
       notesB?.length === 1 &&
       notesB[0].id === noteBId &&
-      notesB[0].summary === 'HOSTED AUDIT USER B',
+      notesB[0].original_text === 'Hosted isolation fixture owned by user B.',
     'Account deletion affected user B',
   );
 

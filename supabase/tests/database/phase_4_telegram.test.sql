@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(19);
+select extensions.plan(20);
 
 set local role authenticated;
 select set_config(
@@ -208,9 +208,9 @@ from public.capture_note_atomic_for_user(
   E'  Telegram\nkeeps\tthe original wording.  ',
   null,
   'lesson',
-  'Synthetic Telegram capture.',
-  array['telegram', 'testing'],
-  'What wording is preserved?',
+  null,
+  '{}'::text[],
+  null,
   'Forwarded Telegram message',
   null,
   'telegram_text',
@@ -235,6 +235,16 @@ select extensions.is(
   ),
   5::bigint,
   'service capture creates exactly five review events'
+);
+
+select extensions.is(
+  (
+    select user_id
+    from public.notes
+    where id = (select note_id from telegram_capture)
+  ),
+  '00000000-0000-4000-8000-00000000000a'::uuid,
+  'Telegram service capture stores the note only for its explicit user'
 );
 
 select extensions.results_eq(

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(16);
+select extensions.plan(19);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values (
@@ -76,6 +76,48 @@ select extensions.throws_ok(
   $$,
   '23514', null,
   'direct writes cannot exceed the recall-prompt limit'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.notes (
+      user_id, client_request_id, original_text, note_type, summary, tags,
+      recall_prompt, capture_channel
+    ) values (
+      '00000000-0000-4000-8000-00000000007a', gen_random_uuid(),
+      'Note', 'lesson', '   ', '{}'::text[], null, 'web'
+    )
+  $$,
+  '23514', null,
+  'nullable legacy summary still rejects a non-null blank value'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.notes (
+      user_id, client_request_id, original_text, note_type, summary, tags,
+      recall_prompt, capture_channel
+    ) values (
+      '00000000-0000-4000-8000-00000000007a', gen_random_uuid(),
+      'Note', 'lesson', null, '{}'::text[], E'\n\t', 'web'
+    )
+  $$,
+  '23514', null,
+  'nullable legacy recall prompt still rejects a non-null blank value'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.notes (
+      user_id, client_request_id, original_text, note_type, summary, tags,
+      recall_prompt, capture_channel
+    ) values (
+      '00000000-0000-4000-8000-00000000007a', gen_random_uuid(),
+      'Note', 'lesson', null, null, null, 'web'
+    )
+  $$,
+  '23502', null,
+  'metadata-free direct writes cannot bypass the non-null tag array'
 );
 
 select extensions.throws_ok(

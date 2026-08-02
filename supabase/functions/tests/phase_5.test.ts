@@ -5,6 +5,7 @@ import {
   dailyDigestSchema,
   type DailyDigest,
 } from '../../../packages/shared/src/contracts/index.ts';
+import { reviewCue } from '../../../packages/shared/src/review-cue.ts';
 import {
   createNotificationHandler,
   processNotifications,
@@ -141,8 +142,6 @@ function note(noteId = NOTE_ID): DigestEvidenceNote {
     noteId,
     originalText: 'Synthetic original note.',
     personalContext: null,
-    summary: 'Synthetic summary.',
-    recallPrompt: 'What was the synthetic idea?',
     sourceTitle: 'Synthetic source',
     sourceUrl: null,
   };
@@ -251,6 +250,8 @@ describe('digest and review delivery', () => {
       true,
     );
     assert.equal(JSON.stringify(requestBody).includes('uniqueItems'), false);
+    assert.equal(JSON.stringify(requestBody).includes('summary'), false);
+    assert.equal(JSON.stringify(requestBody).includes('recallPrompt'), false);
     assert.deepEqual(digest.connection?.noteIds, [NOTE_ID, secondId]);
   });
 
@@ -335,6 +336,10 @@ describe('digest and review delivery', () => {
     assert.equal(generator.calls, 0);
     assert.deepEqual(repository.persisted[0].themes, []);
     assert.equal(repository.persisted[0].connection, null);
+    assert.equal(
+      repository.persisted[0].reflectionQuestion,
+      'Which idea from this note is most worth carrying into tomorrow?',
+    );
     assert.doesNotMatch(telegram.messages[0].text, /Recurring theme/u);
   });
 
@@ -444,8 +449,7 @@ describe('digest and review delivery', () => {
         eventId: EVENT_ID,
         noteId: NOTE_ID,
         stage: 1,
-        recallPrompt: 'What was the synthetic idea?',
-        sourceTitle: 'Synthetic source',
+        sourceTitle: `Synthetic\n\u0000 source ${'x'.repeat(200)}`,
       },
     ];
     const telegram = new NotificationTelegram();
@@ -467,6 +471,11 @@ describe('digest and review delivery', () => {
     ]);
     assert.equal(telegram.messages.length, 1);
     assert.equal(repository.reviewSent.length, 1);
+    assert.match(
+      telegram.messages[0].text,
+      /Stage 1\nWhat do you remember from Synthetic source x+…\?/u,
+    );
+    assert.ok(telegram.messages[0].text.length <= 4_096);
     assert.match(JSON.stringify(telegram.messages[0].options), /Reveal 1/u);
     assert.match(JSON.stringify(telegram.messages[0].options), /Skip 1/u);
   });
@@ -482,7 +491,6 @@ describe('digest and review delivery', () => {
         eventId: EVENT_ID,
         noteId: NOTE_ID,
         stage: 1,
-        recallPrompt: 'What was the synthetic idea?',
         sourceTitle: 'Synthetic source',
       },
     ];
@@ -510,14 +518,14 @@ describe('digest and review delivery', () => {
       eventId: `${String(index + 1).padStart(8, '0')}-0000-4000-8000-000000000000`,
       noteId: NOTE_ID,
       stage: (index % 5) + 1,
-      recallPrompt: `Synthetic prompt ${index + 1}`,
-      sourceTitle: 'Synthetic source',
+      sourceTitle: index === 0 ? null : 'Synthetic source',
     }));
+    const telegram = new NotificationTelegram();
     const result = await processNotifications({
       cronSecret: CRON_SECRET,
       repository,
       digestGenerator: new Generator(),
-      telegram: new NotificationTelegram(),
+      telegram,
       now: () => new Date('2026-08-02T03:35:00.000Z'),
     });
     assert.equal(result.reviewPacketsSent, 2);
@@ -525,6 +533,21 @@ describe('digest and review delivery', () => {
       repository.reviewSent.map((eventIds) => eventIds.length),
       [8, 1],
     );
+    assert.match(
+      telegram.messages[0].text,
+      /What do you remember from this note\?/u,
+    );
+  });
+});
+
+describe('deterministic review cues', () => {
+  it('normalizes and bounds source titles with a source-free fallback', () => {
+    assert.equal(
+      reviewCue('  A\n\t\u0000 source  '),
+      'What do you remember from A source?',
+    );
+    assert.equal(reviewCue(null), 'What do you remember from this note?');
+    assert.ok(Array.from(reviewCue('x'.repeat(1_000))).length <= 147);
   });
 });
 

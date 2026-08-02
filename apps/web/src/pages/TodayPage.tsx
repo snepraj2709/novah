@@ -81,9 +81,16 @@ export function TodayPage({ userId }: { userId: string }) {
             </div>
             <div>
               <strong>
-                {new Set(data.notes.flatMap((note) => note.tags)).size}
+                {
+                  new Set(
+                    data.notes.flatMap((note) => {
+                      const source = note.sourceUrl ?? note.sourceTitle;
+                      return source ? [source] : [];
+                    }),
+                  ).size
+                }
               </strong>
-              <span>distinct tags</span>
+              <span>distinct sources</span>
             </div>
           </section>
 

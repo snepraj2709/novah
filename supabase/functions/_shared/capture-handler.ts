@@ -29,12 +29,24 @@ function captureResponse(capture: StoredCapture): Response {
         id: capture.id,
         originalText: capture.originalText,
         noteType: capture.noteType,
-        summary: capture.summary,
-        tags: capture.tags,
         firstReviewDate: capture.firstReviewDate,
       },
     }),
   );
+}
+
+export function canonicalCaptureEmbeddingInput(input: {
+  originalText: string;
+  personalContext?: string;
+  sourceTitle?: string;
+}): string {
+  return JSON.stringify({
+    originalText: input.originalText,
+    ...(input.personalContext
+      ? { personalContext: input.personalContext }
+      : {}),
+    ...(input.sourceTitle ? { sourceTitle: input.sourceTitle } : {}),
+  });
 }
 
 export async function handleCaptureNote(
@@ -57,23 +69,22 @@ export async function handleCaptureNote(
   const personalContext = optionalNormalizedText(parsed.data.personalContext);
   const sourceTitle = optionalNormalizedText(parsed.data.sourceTitle);
 
-  let enrichment;
+  let noteType = parsed.data.noteType;
   let embedding: number[];
   try {
-    enrichment = await dependencies.ai.enrich({
-      originalText,
-      personalContext,
-      requestedNoteType: parsed.data.noteType,
-    });
-    if (parsed.data.noteType) enrichment.noteType = parsed.data.noteType;
+    if (!noteType) {
+      const classification = await dependencies.ai.classify({
+        originalText,
+        personalContext,
+      });
+      noteType = classification.noteType;
+    }
 
     embedding = await dependencies.ai.embed(
-      JSON.stringify({
+      canonicalCaptureEmbeddingInput({
         originalText,
-        personalContext: personalContext ?? null,
-        summary: enrichment.summary,
-        tags: enrichment.tags,
-        recallPrompt: enrichment.recallPrompt,
+        personalContext,
+        sourceTitle,
       }),
     );
   } catch (error) {
@@ -81,7 +92,7 @@ export async function handleCaptureNote(
     throw new ApiError(
       503,
       'ai_unavailable',
-      'Note enrichment is temporarily unavailable. Retry this draft.',
+      'Note capture is temporarily unavailable. Retry this draft.',
       true,
     );
   }
@@ -93,7 +104,7 @@ export async function handleCaptureNote(
     throw new ApiError(
       503,
       'ai_unavailable',
-      'Note enrichment is temporarily unavailable. Retry this draft.',
+      'Note capture is temporarily unavailable. Retry this draft.',
       true,
     );
   }
@@ -103,7 +114,7 @@ export async function handleCaptureNote(
     originalText,
     personalContext,
     sourceTitle,
-    ...enrichment,
+    noteType,
     embedding,
   });
 

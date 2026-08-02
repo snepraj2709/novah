@@ -3,6 +3,7 @@ import {
   type DailyDigest,
 } from '../../../packages/shared/src/contracts/index.ts';
 import { MAX_TELEGRAM_MESSAGE_LENGTH } from '../../../packages/shared/src/constants/index.ts';
+import { reviewCue } from '../../../packages/shared/src/review-cue.ts';
 import { ApiError, errorResponse } from './errors.ts';
 import { parseOptionalJson } from './http.ts';
 import type {
@@ -20,6 +21,8 @@ const WINDOW_MINUTES = 10;
 const PROFILE_CONCURRENCY = 5;
 const MAX_DIGEST_MODEL_NOTES = 100;
 const MAX_DIGEST_MODEL_CHARACTERS = 100_000;
+const ONE_NOTE_REFLECTION_QUESTION =
+  'Which idea from this note is most worth carrying into tomorrow?';
 
 function boundedMessage(text: string): string {
   if (text.length <= MAX_TELEGRAM_MESSAGE_LENGTH) return text;
@@ -185,7 +188,7 @@ function oneNoteDigest(note: DigestEvidenceNote): DailyDigest {
     sourceCount: sourceCount([note]),
     themes: [],
     connection: null,
-    reflectionQuestion: note.recallPrompt,
+    reflectionQuestion: ONE_NOTE_REFLECTION_QUESTION,
   });
 }
 
@@ -195,8 +198,6 @@ function evidenceCharacters(notes: DigestEvidenceNote[]): number {
       total +
       note.originalText.length +
       (note.personalContext?.length ?? 0) +
-      note.summary.length +
-      note.recallPrompt.length +
       (note.sourceTitle?.length ?? 0) +
       (note.sourceUrl?.length ?? 0),
     0,
@@ -288,14 +289,7 @@ export function reviewPacket(reviews: ClaimedReview[]) {
       '',
       ...chunk.map((review, index) => {
         const number = offset + index + 1;
-        const source = review.sourceTitle
-          ? ` — ${review.sourceTitle.slice(0, 120)}`
-          : '';
-        const prompt =
-          review.recallPrompt.length <= 320
-            ? review.recallPrompt
-            : `${review.recallPrompt.slice(0, 319)}…`;
-        return `${number}. Stage ${review.stage}${source}\n${prompt}`;
+        return `${number}. Stage ${review.stage}\n${reviewCue(review.sourceTitle)}`;
       }),
     ].join('\n\n');
     return {

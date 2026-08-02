@@ -13,8 +13,6 @@ export interface DigestEvidenceNote {
   noteId: string;
   originalText: string;
   personalContext: string | null;
-  summary: string;
-  recallPrompt: string;
   sourceTitle: string | null;
   sourceUrl: string | null;
 }
@@ -23,7 +21,6 @@ export interface ClaimedReview {
   eventId: string;
   noteId: string;
   stage: number;
-  recallPrompt: string;
   sourceTitle: string | null;
 }
 

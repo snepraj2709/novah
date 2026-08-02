@@ -55,6 +55,11 @@ set local role service_role;
 select set_config('request.jwt.claim.sub', '', true);
 select set_config('request.jwt.claim.role', 'service_role', true);
 
+-- Isolate the fixed local-date fixture from seed rows whose default capture
+-- timestamp follows the day the suite is executed.
+delete from public.notes
+where user_id = '00000000-0000-4000-8000-00000000000a';
+
 update public.profiles
 set timezone = 'Asia/Kolkata', telegram_chat_id = 700000000011
 where user_id = '00000000-0000-4000-8000-00000000000a';

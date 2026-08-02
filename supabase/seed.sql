@@ -15,6 +15,8 @@ values
   )
 on conflict (id) do nothing;
 
+-- These rows intentionally retain legacy metadata so every local reset exercises
+-- read compatibility with historical notes. New capture fixtures use NULL, '{}', NULL.
 insert into public.notes (
   id,
   user_id,

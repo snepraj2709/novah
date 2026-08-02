@@ -221,9 +221,6 @@ async function insertFixtures() {
         client_request_id: randomUUID(),
         original_text: 'Synthetic Phase 5 live delivery note.',
         note_type: 'lesson',
-        summary: 'Synthetic live delivery summary.',
-        tags: ['phase-five', 'live-verification'],
-        recall_prompt: 'What did the synthetic live delivery note test?',
         source_title: 'Synthetic live verification',
         capture_channel: 'web',
         captured_at: new Date().toISOString(),
@@ -305,16 +302,16 @@ async function verifyDelivery() {
 async function auditCleanup() {
   await loadSoleLinkedProfile();
   const [notes, digests] = await Promise.all([
-    rest(`/notes?user_id=eq.${profile.user_id}&select=id,tags`),
+    rest(`/notes?user_id=eq.${profile.user_id}&select=id,source_title`),
     rest(`/daily_digests?user_id=eq.${profile.user_id}&select=id,content`),
   ]);
-  const syntheticNotes = notes.filter((note) =>
-    note.tags.includes('live-verification'),
+  const syntheticNotes = notes.filter(
+    (note) => note.source_title === 'Synthetic live verification',
   );
   const syntheticDigests = digests.filter(
     (digest) =>
       digest.content?.reflectionQuestion ===
-      'What did the synthetic live delivery note test?',
+      'Which idea from this note is most worth carrying into tomorrow?',
   );
   assert(
     syntheticNotes.length === 0 && syntheticDigests.length === 0,

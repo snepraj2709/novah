@@ -58,10 +58,10 @@ export type Database = {
           note_type: Database['public']['Enums']['note_type'];
           original_text: string;
           personal_context: string | null;
-          recall_prompt: string;
+          recall_prompt: string | null;
           source_title: string | null;
           source_url: string | null;
-          summary: string;
+          summary: string | null;
           tags: string[];
           updated_at: string;
           user_id: string;
@@ -76,10 +76,10 @@ export type Database = {
           note_type: Database['public']['Enums']['note_type'];
           original_text: string;
           personal_context?: string | null;
-          recall_prompt: string;
+          recall_prompt?: string | null;
           source_title?: string | null;
           source_url?: string | null;
-          summary: string;
+          summary?: string | null;
           tags?: string[];
           updated_at?: string;
           user_id: string;
@@ -94,10 +94,10 @@ export type Database = {
           note_type?: Database['public']['Enums']['note_type'];
           original_text?: string;
           personal_context?: string | null;
-          recall_prompt?: string;
+          recall_prompt?: string | null;
           source_title?: string | null;
           source_url?: string | null;
-          summary?: string;
+          summary?: string | null;
           tags?: string[];
           updated_at?: string;
           user_id?: string;

@@ -381,6 +381,7 @@
 .original-note {
   display: -webkit-box;
   overflow: hidden;
+  overflow-wrap: anywhere;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
 }
@@ -399,17 +400,6 @@
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
-}
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: auto;
-  padding-top: 1rem;
-}
-.tag-row span {
-  color: var(--green);
-  font-size: 0.78rem;
 }
 .note-card footer {
   display: flex;
@@ -513,6 +503,7 @@ select {
 .review-copy h3 {
   margin: 0.35rem 0;
   font-size: 1rem;
+  overflow-wrap: anywhere;
 }
 .review-copy p {
   margin: 0;

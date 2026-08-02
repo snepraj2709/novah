@@ -1,6 +1,8 @@
 # Novah Runbook
 
-> Status: Phase 8 is complete. Production deployment, bounded smoke verification, rollback evidence and cleanup pass.
+> Status: The existing Phase 8 production deployment, bounded smoke verification,
+> rollback evidence and cleanup pass. The capture AI simplification is verified
+> locally only and must not be deployed without a separate approved rollout.
 
 ## Local development
 
@@ -88,6 +90,11 @@ Failed captures remain under the extension-local
 retried. Supabase Auth uses the separate `novah-auth-session` key. Do not copy
 either storage value into logs or test evidence.
 
+A successful capture shows **Saved to Novah** and the assigned Type; it does not
+render a generated summary or tags. Recall cards show original text, optional
+context, Type, source and similarity. Verify those fields with long text and
+missing optional context/source at both side-panel and narrow mobile widths.
+
 ### Web dashboard
 
 ```bash
@@ -98,6 +105,10 @@ pnpm --filter web build
 
 The web app uses only the public Supabase URL and publishable key. Keep the
 service-role, OpenAI, Telegram and Cron secrets out of every browser environment.
+JSON exports use `novah-export` format version `2` and contain only the note ID,
+original text, optional context, Type, provenance, capture channel and capture
+timestamp. Markdown exports contain the same user-facing data in bounded
+structure and omit legacy summary, tag and recall-prompt sections.
 
 ### Phase 5 notifications
 
@@ -241,6 +252,20 @@ KiB. Notes are limited to 20,000 characters, source URLs to 2,048 characters and
 HTTP(S), and voice messages to two minutes and 10 MiB. Limits apply to declared
 and streamed bodies.
 
+New captures classify only when Type is omitted. An explicit Type costs one
+embedding operation; an omitted Type costs one classification plus one embedding.
+Idempotent retries cost zero provider operations. The embedding input is a
+deterministic JSON object containing normalized original text and optional context
+and source title, never source URL or generated prose. New rows keep the legacy
+database columns as `summary = NULL`, `tags = '{}'` and `recall_prompt = NULL`.
+
+Search costs one query embedding and adds one grounded synthesis call only when
+retrieval is strong. One-note and oversized-day digests are deterministic and
+cost zero model calls; eligible bounded multi-note digests cost one generation
+call. Telegram voice adds one transcription before the applicable capture calls.
+Text-generation requests use `store: false`. Count logical operations separately
+from retry attempts and obtain explicit approval before any paid or hosted probe.
+
 OpenAI requests have a 30-second timeout and at most two attempts for transient
 failures. Safe Telegram reads and acknowledgements have a 20-second timeout and
 at most two attempts. Message sends retry only an explicit rate limit; network
@@ -369,6 +394,14 @@ database rollback requires a reviewed forward migration rather than editing
 migration history. Vercel rollback promotes the preserved prior production
 deployment. Telegram rollback restores the preserved webhook URL and allowed
 updates. Every rollback action requires separate approval.
+
+Migration `20260803004000` is forward-only and preserves historical metadata. A
+code rollback to the prior function bundle can still write those nullable legacy
+columns through the unchanged RPC signatures, but it resumes summary/tag/recall
+generation and therefore requires an explicit product rollback decision. Do not
+re-add `NOT NULL`, purge legacy metadata, edit migration history or backfill rows
+during rollback; use a separately reviewed forward migration if schema reversal
+is ever required.
 
 ## Operations and recovery
 

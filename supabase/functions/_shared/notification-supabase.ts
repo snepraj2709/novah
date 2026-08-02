@@ -84,8 +84,6 @@ export class SupabaseNotificationRepository implements NotificationRepository {
           noteId: note.note_id,
           originalText: note.original_text,
           personalContext: note.personal_context,
-          summary: note.summary,
-          recallPrompt: note.recall_prompt,
           sourceTitle: note.source_title,
           sourceUrl: note.source_url,
         })),
@@ -134,7 +132,6 @@ export class SupabaseNotificationRepository implements NotificationRepository {
       eventId: review.event_id,
       noteId: review.note_id,
       stage: review.stage,
-      recallPrompt: review.recall_prompt,
       sourceTitle: review.source_title,
     }));
   }

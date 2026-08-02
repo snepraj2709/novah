@@ -51,7 +51,7 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
     const client = this.authenticatedClient();
     const { data: note, error: noteError } = await client
       .from('notes')
-      .select('id, original_text, note_type, summary, tags')
+      .select('id, original_text, note_type')
       .eq('client_request_id', clientRequestId)
       .maybeSingle();
     if (noteError)
@@ -79,8 +79,6 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
       id: note.id,
       originalText: note.original_text,
       noteType: note.note_type,
-      summary: note.summary,
-      tags: note.tags,
       firstReviewDate: review.due_on,
       created: false,
     };
@@ -92,9 +90,9 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
       input_original_text: input.originalText,
       input_personal_context: input.personalContext ?? null,
       input_note_type: input.noteType,
-      input_summary: input.summary,
-      input_tags: input.tags,
-      input_recall_prompt: input.recallPrompt,
+      input_summary: null,
+      input_tags: [],
+      input_recall_prompt: null,
       input_source_title: input.sourceTitle ?? null,
       input_source_url: input.sourceUrl ?? null,
       input_capture_channel: input.captureChannel,
@@ -113,8 +111,6 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
       id: row.note_id,
       originalText: row.stored_original_text,
       noteType: row.stored_note_type,
-      summary: row.stored_summary,
-      tags: row.stored_tags,
       firstReviewDate: row.first_review_date,
       created: row.created,
     };
@@ -141,9 +137,6 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
       originalText: row.original_text,
       personalContext: row.personal_context,
       noteType: row.note_type,
-      summary: row.summary,
-      tags: row.tags,
-      recallPrompt: row.recall_prompt,
       sourceTitle: row.source_title,
       sourceUrl: row.source_url,
       capturedAt: row.captured_at,

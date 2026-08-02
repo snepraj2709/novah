@@ -1,6 +1,6 @@
 # Novah Privacy Policy
 
-Effective 2 August 2026
+Effective 3 August 2026
 
 Novah is a private-beta personal knowledge tool. This policy explains what the
 beta stores, why it processes that information, which services receive it, and
@@ -9,26 +9,35 @@ how a participant can control it.
 ## Information Novah processes
 
 Novah stores account identifiers and settings; saved note text and optional
-personal context; source titles and URLs; generated summaries, tags, recall
-prompts and embeddings; digests and review history; Telegram linkage and
-delivery settings; and minimum operational metadata needed to run the service.
+personal context; source titles and URLs; the assigned note type and generated
+embedding; digests and review history; Telegram linkage and delivery settings;
+and minimum operational metadata needed to run the service. Historical notes
+may retain previously generated summaries, tags and recall prompts until the
+participant deletes the note or account; Novah does not generate those fields
+for new captures.
 Raw Telegram voice audio is held in memory only long enough to enforce limits
 and transcribe it and is not persisted by Novah.
 
 ## Purposes and providers
 
 Novah processes information to authenticate participants, save and retrieve
-their notes, generate requested note metadata and grounded answers, schedule
+their notes, classify a note when no Type is selected, generate embeddings and
+grounded answers, schedule
 reviews and digests, deliver Telegram interactions, and secure and operate the
 beta. Supabase provides authentication, database and Edge Function
-infrastructure. OpenAI provides embeddings, enrichment, grounded synthesis,
-digest generation and transcription. Telegram transports bot messages and voice
-files. The web host serves the dashboard once it is deployed.
+infrastructure. OpenAI provides note-type classification, embeddings, grounded
+search synthesis, multi-note digest generation and voice transcription. Telegram
+transports bot messages and voice files. The web host serves the dashboard.
 
 Only the data needed for a requested feature is sent to a provider. Text
-generation requests use `store: false`. Novah does not use web search to answer
-library questions, sell personal data, serve advertising, or send note content
-to third-party analytics.
+generation requests use `store: false`. Classification receives note text and
+optional context only when Type is omitted. Capture embeddings receive normalized
+note text plus optional context and source title; recall embeddings receive the
+search query. Grounded synthesis receives the query and retrieved note evidence.
+Eligible multi-note digests receive original text, optional context and source
+metadata. Transcription receives the bounded voice file. Novah does not use web
+search to answer library questions, sell personal data, serve advertising, or
+send note content to third-party analytics.
 
 ## Retention and deletion
 
@@ -38,7 +47,7 @@ deletion removes the account's Novah records through database cascades. Limited
 security, billing or request metadata may remain for a provider's own retention
 period and legal obligations; Novah does not control those provider systems.
 
-Participants can export their library as JSON or Markdown, delete individual
+Participants can export their library as JSON version 2 or Markdown, delete individual
 notes, unlink Telegram by deleting the account, or permanently delete the
 account in Settings. Export before account deletion if a copy is needed. A beta
 participant can contact the beta operator through the invitation channel for

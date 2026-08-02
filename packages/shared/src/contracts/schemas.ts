@@ -45,27 +45,8 @@ export const captureNoteRequestSchema = z
   })
   .strict();
 
-export const enrichmentSchema = z
-  .object({
-    noteType: noteTypeSchema,
-    summary: nonBlankString(500),
-    tags: z
-      .array(
-        z
-          .string()
-          .regex(
-            /^[a-z0-9]+(?:-[a-z0-9]+)*$/u,
-            'Tags must be lowercase words joined with hyphens',
-          ),
-      )
-      .min(2)
-      .max(5)
-      .refine(
-        (tags) => new Set(tags).size === tags.length,
-        'Tags must be unique',
-      ),
-    recallPrompt: nonBlankString(500),
-  })
+export const classificationSchema = z
+  .object({ noteType: noteTypeSchema })
   .strict();
 
 export const captureNoteResponseSchema = z
@@ -75,8 +56,6 @@ export const captureNoteResponseSchema = z
         id: z.string().uuid(),
         originalText: z.string().min(1),
         noteType: noteTypeSchema,
-        summary: z.string().min(1).max(500),
-        tags: z.array(z.string()).max(5),
         firstReviewDate: z.iso.date(),
       })
       .strict(),
@@ -101,9 +80,6 @@ export const searchMatchSchema = z
     originalText: z.string(),
     personalContext: z.string().nullable(),
     noteType: noteTypeSchema,
-    summary: z.string(),
-    tags: z.array(z.string()),
-    recallPrompt: z.string(),
     sourceTitle: z.string().nullable(),
     sourceUrl: z.string().nullable(),
     capturedAt: z.iso.datetime({ offset: true }),
@@ -202,7 +178,7 @@ export const dailyDigestSchema = z
 
 export type CaptureNoteRequest = z.infer<typeof captureNoteRequestSchema>;
 export type CaptureNoteResponse = z.infer<typeof captureNoteResponseSchema>;
-export type Enrichment = z.infer<typeof enrichmentSchema>;
+export type Classification = z.infer<typeof classificationSchema>;
 export type SearchNotesRequest = z.infer<typeof searchNotesRequestSchema>;
 export type SearchNotesResponse = z.infer<typeof searchNotesResponseSchema>;
 export type SearchMatch = z.infer<typeof searchMatchSchema>;

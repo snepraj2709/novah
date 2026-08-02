@@ -235,12 +235,7 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
               ✓
             </div>
             <h2>Saved to Novah</h2>
-            <p>{saved.summary}</p>
-            <div className="tag-row">
-              {saved.tags.map((tag) => (
-                <span key={tag}>{tag}</span>
-              ))}
-            </div>
+            <p>Type: {saved.noteType.replaceAll('_', ' ')}</p>
           </>
         ) : (
           <>
@@ -305,7 +300,7 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
 
       <form onSubmit={submit} className="stack capture-form">
         <label>
-            Note 
+          Note
           <textarea
             rows={7}
             value={activeDraft.originalText}
@@ -535,12 +530,6 @@ function RecallPanel() {
               {match.personalContext && (
                 <p className="context">“{match.personalContext}”</p>
               )}
-              <p className="summary">{match.summary}</p>
-              <div className="tag-row">
-                {match.tags.map((tag) => (
-                  <span key={tag}>{tag}</span>
-                ))}
-              </div>
               <footer>
                 <span>
                   {match.noteType} ·{' '}

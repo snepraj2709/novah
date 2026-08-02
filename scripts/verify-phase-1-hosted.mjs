@@ -246,9 +246,6 @@ async function run() {
   const noteBRequestId = randomUUID();
   const noteFields = {
     note_type: 'observation',
-    summary: 'Synthetic hosted Phase 1 verification.',
-    tags: ['hosted', 'testing'],
-    recall_prompt: 'What does this synthetic fixture verify?',
     capture_channel: 'web',
   };
 
@@ -346,7 +343,7 @@ async function run() {
   const updated = await restJson(`/notes?id=eq.${crudNoteId}`, tokenA, {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ summary: 'Updated synthetic hosted verification.' }),
+    body: JSON.stringify({ original_text: 'Updated synthetic hosted note.' }),
   });
   assert(updated.length === 1, 'User A could not update its owned note');
   await restJson(`/notes?id=eq.${crudNoteId}`, tokenA, {

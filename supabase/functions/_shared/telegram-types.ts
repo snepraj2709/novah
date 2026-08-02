@@ -36,13 +36,12 @@ export interface TelegramCallbackQuery {
 
 export interface TelegramTodayNote {
   noteType: string;
-  summary: string;
+  originalText: string;
 }
 
 export interface TelegramDueReview {
   eventId: string;
   stage: number;
-  recallPrompt: string;
   sourceTitle: string | null;
 }
 

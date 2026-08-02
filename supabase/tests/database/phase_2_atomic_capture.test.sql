@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(12);
+select extensions.plan(17);
 
 set local role authenticated;
 select set_config(
@@ -18,9 +18,9 @@ from public.capture_note_atomic(
   E'  Phase 2\nkeeps\tthe original wording.  ',
   'Synthetic personal context.',
   'quote',
-  'Synthetic atomic capture summary.',
-  array['atomic-capture', 'testing'],
-  'What does atomic capture preserve?',
+  null,
+  '{}'::text[],
+  null,
   'Synthetic source',
   'https://example.invalid/phase-2',
   'web',
@@ -41,6 +41,54 @@ select extensions.is(
   (select created from first_capture_result),
   true,
   'the first atomic capture reports a newly created note'
+);
+
+select extensions.is(
+  (select stored_summary from first_capture_result),
+  null::text,
+  'metadata-free capture returns a null legacy summary'
+);
+
+select extensions.is(
+  (select stored_tags from first_capture_result),
+  '{}'::text[],
+  'metadata-free capture returns an empty legacy tag array'
+);
+
+select extensions.is(
+  (
+    select recall_prompt
+    from public.notes
+    where id = (select note_id from first_capture_result)
+  ),
+  null::text,
+  'metadata-free capture stores a null legacy recall prompt'
+);
+
+select extensions.is(
+  (
+    select extensions.vector_dims(embedding)
+    from public.notes
+    where id = (select note_id from first_capture_result)
+  ),
+  1536,
+  'metadata-free capture retains the required vector dimension'
+);
+
+select extensions.results_eq(
+  $$
+    select summary, tags, recall_prompt
+    from public.notes
+    where id = '10000000-0000-4000-8000-00000000000a'
+  $$,
+  $$
+    values (
+      'Synthetic isolation fixture for user A.'::text,
+      array['isolation', 'testing']::text[],
+      'Which user owns fixture A?'::text
+    )
+  $$,
+  'legacy metadata survives a clean migration replay unchanged'
 );
 
 select extensions.is(

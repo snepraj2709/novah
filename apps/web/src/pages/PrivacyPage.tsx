@@ -23,25 +23,32 @@ export function PrivacyPage({ signedIn }: { signedIn: boolean }) {
       <article className="policy-card">
         <p className="eyebrow">Privacy policy</p>
         <h1>Your notes are personal. Novah treats them that way.</h1>
-        <p className="policy-updated">Effective 2 August 2026</p>
+        <p className="policy-updated">Effective 3 August 2026</p>
 
         <section>
           <h2>What Novah stores</h2>
           <p>
             Novah stores your account details, saved note text, optional
-            personal context, source details, generated summaries and tags,
-            embeddings, digests, review history, and delivery settings in
-            Supabase. These records are scoped to your authenticated account.
+            personal context, source details, assigned Type, embeddings,
+            digests, review history, and delivery settings in Supabase. Legacy
+            summaries, tags, and recall prompts may remain on historical notes
+            until you delete the note or account; new captures do not generate
+            them. These records are scoped to your authenticated account.
           </p>
         </section>
         <section>
           <h2>How AI processing works</h2>
           <p>
-            Note enrichment, search synthesis, embeddings, and transcription use
-            OpenAI APIs. Novah sends only the information needed for the
-            requested feature and uses <code>store: false</code> for
-            text-generation calls. Novah does not use web search or unrelated
-            notes to answer library questions.
+            Note-type classification, embeddings, grounded search synthesis,
+            multi-note digest generation, and voice transcription use OpenAI
+            APIs. Novah sends only the information needed for the requested
+            feature and uses <code>store: false</code> for text-generation
+            calls. Classification receives note text and optional context only
+            when you omit Type. Embeddings receive the capture evidence or
+            recall query; synthesis and eligible multi-note digests receive only
+            their grounded note evidence. Transcription receives the bounded
+            voice file. Novah does not use web search or unrelated notes to
+            answer library questions.
           </p>
         </section>
         <section>
@@ -65,11 +72,11 @@ export function PrivacyPage({ signedIn }: { signedIn: boolean }) {
         <section>
           <h2>Your controls</h2>
           <p>
-            You can export your library as JSON or Markdown, delete individual
-            notes, disconnect by removing account data, or permanently delete
-            your account from Settings. Note deletion also removes its review
-            events. Account deletion removes your owned Novah records through
-            database cascades.
+            You can export your library as JSON version 2 or Markdown, delete
+            individual notes, disconnect by removing account data, or
+            permanently delete your account from Settings. Note deletion also
+            removes its review events. Account deletion removes your owned Novah
+            records through database cascades.
           </p>
         </section>
         <section>
