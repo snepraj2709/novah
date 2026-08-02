@@ -70,19 +70,22 @@ export const NOTE_TYPES: Array<{ value: NoteType | 'all'; label: string }> = [
 const NOTE_COLUMNS =
   'id, original_text, personal_context, note_type, summary, tags, recall_prompt, source_title, source_url, capture_channel, captured_at';
 
-function dashboardNote(row: {
-  id: string;
-  original_text: string;
-  personal_context: string | null;
-  note_type: NoteType;
-  summary: string;
-  tags: string[];
-  recall_prompt: string;
-  source_title: string | null;
-  source_url: string | null;
-  capture_channel: Database['public']['Enums']['capture_channel'];
-  captured_at: string;
-}): DashboardNote {
+type DashboardNoteRow = Pick<
+  Database['public']['Tables']['notes']['Row'],
+  | 'id'
+  | 'original_text'
+  | 'personal_context'
+  | 'note_type'
+  | 'summary'
+  | 'tags'
+  | 'recall_prompt'
+  | 'source_title'
+  | 'source_url'
+  | 'capture_channel'
+  | 'captured_at'
+>;
+
+function dashboardNote(row: DashboardNoteRow): DashboardNote {
   return {
     id: row.id,
     originalText: row.original_text,
@@ -96,6 +99,30 @@ function dashboardNote(row: {
     captureChannel: row.capture_channel,
     capturedAt: row.captured_at,
   };
+}
+
+async function loadNotesInUtcRange(
+  userId: string,
+  startAt: string,
+  endAt: string,
+): Promise<DashboardNoteRow[]> {
+  const notes: DashboardNoteRow[] = [];
+  const pageSize = 1_000;
+  for (let start = 0; ; start += pageSize) {
+    const { data, error } = await supabase
+      .from('notes')
+      .select(NOTE_COLUMNS)
+      .eq('user_id', userId)
+      .gte('captured_at', startAt)
+      .lt('captured_at', endAt)
+      .order('captured_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(start, start + pageSize - 1);
+    if (error) throw new Error("Today's notes could not be loaded.");
+    const page = data ?? [];
+    notes.push(...page);
+    if (page.length < pageSize) return notes;
+  }
 }
 
 export function searchMatchNote(match: SearchMatch): DashboardNote {
@@ -137,14 +164,8 @@ export async function loadToday(
 ): Promise<TodayData> {
   const localDate = localDateFor(now, timezone);
   const range = candidateUtcRange(localDate);
-  const [notesResult, digestResult] = await Promise.all([
-    supabase
-      .from('notes')
-      .select(NOTE_COLUMNS)
-      .eq('user_id', userId)
-      .gte('captured_at', range.start)
-      .lt('captured_at', range.end)
-      .order('captured_at', { ascending: false }),
+  const [noteRows, digestResult] = await Promise.all([
+    loadNotesInUtcRange(userId, range.start, range.end),
     supabase
       .from('daily_digests')
       .select('content')
@@ -152,10 +173,9 @@ export async function loadToday(
       .eq('digest_date', localDate)
       .maybeSingle(),
   ]);
-  if (notesResult.error) throw new Error("Today's notes could not be loaded.");
   if (digestResult.error)
     throw new Error("Today's digest could not be loaded.");
-  const notes = (notesResult.data ?? [])
+  const notes = noteRows
     .filter(
       (note) =>
         localDateFor(new Date(note.captured_at), timezone) === localDate,
@@ -186,6 +206,7 @@ export async function loadLibraryPage(input: {
     .select(NOTE_COLUMNS, { count: 'exact' })
     .eq('user_id', input.userId)
     .order('captured_at', { ascending: false })
+    .order('id', { ascending: false })
     .range(start, start + input.pageSize - 1);
   if (input.noteType !== 'all') query = query.eq('note_type', input.noteType);
   const { data, error, count } = await query;
@@ -209,26 +230,44 @@ export async function loadReviews(
   now = new Date(),
 ): Promise<ReviewData> {
   const today = localDateFor(now, timezone);
-  const { data: events, error } = await supabase
-    .from('review_events')
-    .select('id, note_id, stage, due_on, status, answered_at')
-    .eq('user_id', userId)
-    .order('due_on', { ascending: true })
-    .limit(500);
-  if (error) throw new Error('Reviews could not be loaded.');
-  const noteIds = [...new Set((events ?? []).map((event) => event.note_id))];
-  const noteResult = noteIds.length
-    ? await supabase
-        .from('notes')
-        .select('id, recall_prompt, source_title')
-        .eq('user_id', userId)
-        .in('id', noteIds)
-    : { data: [], error: null };
-  if (noteResult.error) throw new Error('Review notes could not be loaded.');
-  const noteById = new Map(
-    (noteResult.data ?? []).map((note) => [note.id, note]),
-  );
-  const items = (events ?? []).flatMap((event) => {
+  type ReviewEventRow = Pick<
+    Database['public']['Tables']['review_events']['Row'],
+    'id' | 'note_id' | 'stage' | 'due_on' | 'status' | 'answered_at'
+  >;
+  type ReviewNoteRow = Pick<
+    Database['public']['Tables']['notes']['Row'],
+    'id' | 'recall_prompt' | 'source_title'
+  >;
+  const events: ReviewEventRow[] = [];
+  const pageSize = 1_000;
+  for (let start = 0; ; start += pageSize) {
+    const { data, error } = await supabase
+      .from('review_events')
+      .select('id, note_id, stage, due_on, status, answered_at')
+      .eq('user_id', userId)
+      .order('due_on', { ascending: true })
+      .order('id', { ascending: true })
+      .range(start, start + pageSize - 1);
+    if (error) throw new Error('Reviews could not be loaded.');
+    const page = data ?? [];
+    events.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  const noteIds = [...new Set(events.map((event) => event.note_id))];
+  const notes: ReviewNoteRow[] = [];
+  const noteBatchSize = 100;
+  for (let start = 0; start < noteIds.length; start += noteBatchSize) {
+    const { data, error } = await supabase
+      .from('notes')
+      .select('id, recall_prompt, source_title')
+      .eq('user_id', userId)
+      .in('id', noteIds.slice(start, start + noteBatchSize));
+    if (error) throw new Error('Review notes could not be loaded.');
+    notes.push(...(data ?? []));
+  }
+  const noteById = new Map(notes.map((note) => [note.id, note]));
+  const items = events.flatMap((event) => {
     const note = noteById.get(event.note_id);
     return note
       ? [
@@ -293,6 +332,7 @@ export async function loadAllNotes(userId: string): Promise<DashboardNote[]> {
       .select(NOTE_COLUMNS)
       .eq('user_id', userId)
       .order('captured_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(start, start + pageSize - 1);
     if (error) throw new Error('Your export could not be prepared.');
     const page = (data ?? []).map(dashboardNote);

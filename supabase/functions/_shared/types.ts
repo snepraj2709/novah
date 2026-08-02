@@ -6,6 +6,7 @@ import type {
 
 export interface AuthenticatedUser {
   id: string;
+  passwordAuthenticatedAt?: string;
 }
 
 export interface Authenticator {

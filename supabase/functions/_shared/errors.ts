@@ -3,6 +3,7 @@ export type ApiErrorCode =
   | 'method_not_allowed'
   | 'origin_not_allowed'
   | 'unauthorized'
+  | 'reauthentication_required'
   | 'ai_unavailable'
   | 'payload_too_large'
   | 'telegram_unavailable'

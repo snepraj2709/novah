@@ -64,6 +64,22 @@ test('failed capture keeps the draft and reuses its idempotency key on retry', (
   assert.equal(draftToCaptureRequest(stored!).clientRequestId, REQUEST_ID);
 });
 
+test('adding more than ten unsaved captures never discards an older draft', () => {
+  const drafts = Array.from({ length: 12 }, (_, index) =>
+    createCaptureDraft({
+      clientRequestId: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      originalText: `Unsaved capture ${index}`,
+    }),
+  );
+  const collection = drafts.reduce(addDraft, emptyDraftCollection());
+
+  assert.equal(collection.drafts.length, drafts.length);
+  assert.deepEqual(
+    new Set(collection.drafts.map((draft) => draft.clientRequestId)),
+    new Set(drafts.map((draft) => draft.clientRequestId)),
+  );
+});
+
 test('capture validation rejects blank text and non-HTTP source URLs', () => {
   const invalid = createCaptureDraft({
     clientRequestId: REQUEST_ID,

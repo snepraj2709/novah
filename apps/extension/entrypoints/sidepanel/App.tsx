@@ -609,22 +609,32 @@ function SettingsPanel() {
               ? 'A Telegram chat is already connected.'
               : 'No Telegram chat is connected yet.'}
           </p>
-          <code aria-label="Telegram link code">{link.code}</code>
-          <p>
-            Send <strong>/link {link.code}</strong> to the Novah bot. This code
-            expires at {new Date(link.expiresAt).toLocaleTimeString()} and works
-            once.
-          </p>
+          {!link.connected && (
+            <>
+              <code aria-label="Telegram link code">{link.code}</code>
+              <p>
+                Send <strong>/link {link.code}</strong> to the Novah bot. This
+                code expires at {new Date(link.expiresAt).toLocaleTimeString()}{' '}
+                and works once.
+              </p>
+            </>
+          )}
         </div>
       )}
-      <button
-        className="primary"
-        type="button"
-        disabled={busy}
-        onClick={() => void generateCode()}
-      >
-        {busy ? 'Generating…' : link ? 'Generate a new code' : 'Generate code'}
-      </button>
+      {!link?.connected && (
+        <button
+          className="primary"
+          type="button"
+          disabled={busy}
+          onClick={() => void generateCode()}
+        >
+          {busy
+            ? 'Generating…'
+            : link
+              ? 'Generate a new code'
+              : 'Generate code'}
+        </button>
+      )}
       <p className="privacy-note">
         Telegram messages pass through Telegram infrastructure. Novah never
         stores raw voice audio.

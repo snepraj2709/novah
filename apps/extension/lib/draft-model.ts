@@ -44,8 +44,6 @@ export type DraftFieldErrors = Partial<
   >
 >;
 
-const MAX_SAVED_DRAFTS = 10;
-
 export function isHttpUrl(value: string): boolean {
   if (!value) return false;
   try {
@@ -104,7 +102,7 @@ export function addDraft(
   );
   return {
     activeId: draft.clientRequestId,
-    drafts: [draft, ...withoutDuplicate].slice(0, MAX_SAVED_DRAFTS),
+    drafts: [draft, ...withoutDuplicate],
   };
 }
 

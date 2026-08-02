@@ -14,6 +14,7 @@ import { captureNoteRequestSchema } from '../../../packages/shared/src/contracts
 import { handleAccountDeletion } from '../_shared/account-deletion-handler.ts';
 import { handleCaptureNote } from '../_shared/capture-handler.ts';
 import { ApiError } from '../_shared/errors.ts';
+import { isLocalSupabaseRuntimeUrl } from '../_shared/environment.ts';
 import { createHttpHandler, parseJson } from '../_shared/http.ts';
 import { OpenAiProvider } from '../_shared/openai.ts';
 import { handleSearchNotes } from '../_shared/search-handler.ts';
@@ -96,6 +97,24 @@ describe('Phase 7 user-function authorization', () => {
 });
 
 describe('Phase 7 request boundaries', () => {
+  it('recognizes only explicit local Supabase runtime hosts', () => {
+    for (const value of [
+      'http://127.0.0.1:54321',
+      'http://localhost:54321',
+      'http://kong:8000',
+      'http://host.docker.internal:54321',
+    ]) {
+      assert.equal(isLocalSupabaseRuntimeUrl(value), true);
+    }
+    for (const value of [
+      'https://fqinppulljqefbvukcpg.supabase.co',
+      'https://kong.example.test',
+      'not-a-url',
+    ]) {
+      assert.equal(isLocalSupabaseRuntimeUrl(value), false);
+    }
+  });
+
   it('rejects declared and streamed JSON bodies above the shared byte limit', async () => {
     const declared = new Request('http://localhost/test', {
       method: 'POST',

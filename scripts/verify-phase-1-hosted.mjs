@@ -419,7 +419,7 @@ async function run() {
       body: JSON.stringify({
         id: linkCodeId,
         user_id: userA.id,
-        code_hash: `phase-1-${randomUUID()}`,
+        code_hash: randomBytes(32).toString('hex'),
         created_at: createdAt.toISOString(),
         expires_at: new Date(createdAt.getTime() + 300_000).toISOString(),
       }),

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from 'react';
@@ -40,13 +41,19 @@ export function LibraryPage({ userId }: { userId: string }) {
   const [searchResult, setSearchResult] = useState<SearchNotesResponse | null>(
     null,
   );
+  const [activeSearchQuery, setActiveSearchQuery] = useState<string | null>(
+    null,
+  );
   const [searching, setSearching] = useState(false);
   const [exporting, setExporting] = useState<'json' | 'markdown' | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DashboardNote | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const browseRequest = useRef(0);
+  const searchRequest = useRef(0);
 
   const load = useCallback(async () => {
-    if (searchResult) return;
+    if (activeSearchQuery !== null) return;
+    const requestId = ++browseRequest.current;
     setLoading(true);
     setError(null);
     try {
@@ -56,14 +63,18 @@ export function LibraryPage({ userId }: { userId: string }) {
         page,
         pageSize: PAGE_SIZE,
       });
-      setNotes(result.notes);
-      setTotal(result.total);
+      if (requestId === browseRequest.current) {
+        setNotes(result.notes);
+        setTotal(result.total);
+      }
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (requestId === browseRequest.current) {
+        setError(errorMessage(cause));
+      }
     } finally {
-      setLoading(false);
+      if (requestId === browseRequest.current) setLoading(false);
     }
-  }, [noteType, page, searchResult, userId]);
+  }, [activeSearchQuery, noteType, page, userId]);
 
   useEffect(() => void load(), [load]);
 
@@ -78,29 +89,49 @@ export function LibraryPage({ userId }: { userId: string }) {
     page * PAGE_SIZE,
     (page + 1) * PAGE_SIZE,
   );
-  const visibleNotes = searchResult ? visibleSearchNotes : notes;
-  const visibleTotal = searchResult ? filteredSearchNotes.length : total;
+  const searchMode = activeSearchQuery !== null;
+  const visibleNotes = searchMode ? visibleSearchNotes : notes;
+  const visibleTotal = searchMode ? filteredSearchNotes.length : total;
   const pageCount = Math.max(1, Math.ceil(visibleTotal / PAGE_SIZE));
 
-  async function submitSearch(event: FormEvent) {
-    event.preventDefault();
-    const normalized = query.trim();
-    if (!normalized) {
-      setSearchResult(null);
-      setPage(0);
-      return;
-    }
+  async function runSearch(normalized: string) {
+    const requestId = ++searchRequest.current;
     setSearching(true);
     setError(null);
     setPage(0);
     try {
-      setSearchResult(await searchNotes({ query: normalized, limit: 20 }));
+      const result = await searchNotes({ query: normalized, limit: 20 });
+      if (requestId === searchRequest.current) setSearchResult(result);
     } catch (cause) {
-      setError(errorMessage(cause, 'Search could not be completed.'));
+      if (requestId === searchRequest.current) {
+        setError(errorMessage(cause, 'Search could not be completed.'));
+      }
     } finally {
-      setSearching(false);
-      setLoading(false);
+      if (requestId === searchRequest.current) setSearching(false);
     }
+  }
+
+  function clearSearch() {
+    searchRequest.current += 1;
+    setSearching(false);
+    setQuery('');
+    setActiveSearchQuery(null);
+    setSearchResult(null);
+    setError(null);
+    setPage(0);
+  }
+
+  function submitSearch(event: FormEvent) {
+    event.preventDefault();
+    const normalized = query.trim();
+    if (!normalized) {
+      clearSearch();
+      return;
+    }
+    browseRequest.current += 1;
+    setActiveSearchQuery(normalized);
+    setSearchResult(null);
+    void runSearch(normalized);
   }
 
   async function exportLibrary(format: 'json' | 'markdown') {
@@ -136,7 +167,7 @@ export function LibraryPage({ userId }: { userId: string }) {
     setError(null);
     try {
       await deleteOwnedNote(deleteTarget.id);
-      if (searchResult) {
+      if (searchMode && searchResult) {
         setSearchResult({
           ...searchResult,
           matches: searchResult.matches.filter(
@@ -213,9 +244,14 @@ export function LibraryPage({ userId }: { userId: string }) {
           <select
             value={noteType}
             onChange={(event) => {
+              browseRequest.current += 1;
+              searchRequest.current += 1;
+              setSearching(false);
+              setError(null);
               setNoteType(event.target.value as NoteType | 'all');
               setPage(0);
               setQuery('');
+              setActiveSearchQuery(null);
               setSearchResult(null);
             }}
           >
@@ -239,15 +275,7 @@ export function LibraryPage({ userId }: { userId: string }) {
                   : 'What your notes say'}
               </h2>
             </div>
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => {
-                setQuery('');
-                setSearchResult(null);
-                setPage(0);
-              }}
-            >
+            <button className="text-button" type="button" onClick={clearSearch}>
               Clear search
             </button>
           </div>
@@ -259,14 +287,21 @@ export function LibraryPage({ userId }: { userId: string }) {
       )}
 
       {error ? (
-        <ErrorState message={error} retry={() => void load()} />
-      ) : loading && !searchResult ? (
+        <ErrorState
+          message={error}
+          retry={() =>
+            activeSearchQuery ? void runSearch(activeSearchQuery) : void load()
+          }
+        />
+      ) : searching ? (
+        <LoadingState label="Searching your library…" />
+      ) : loading && !searchMode ? (
         <LoadingState label="Opening your library…" />
       ) : visibleNotes.length === 0 ? (
         <EmptyState
-          title={searchResult ? 'No matching notes' : 'Your library is empty'}
+          title={searchMode ? 'No matching notes' : 'Your library is empty'}
           message={
-            searchResult
+            searchMode
               ? 'Try a broader question or another note type.'
               : 'Capture an idea from the extension or Telegram and it will appear here.'
           }

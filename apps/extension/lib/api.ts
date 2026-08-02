@@ -14,6 +14,8 @@ import {
 import { getPublicExtensionConfig } from './config.ts';
 import { supabase } from './supabase.ts';
 
+const FUNCTION_REQUEST_TIMEOUT_MS = 30_000;
+
 export class ExtensionApiError extends Error {
   readonly code: string;
   readonly retryable: boolean;
@@ -52,6 +54,7 @@ async function invokeFunction(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(FUNCTION_REQUEST_TIMEOUT_MS),
       },
     );
   } catch {

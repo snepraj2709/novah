@@ -338,6 +338,29 @@ describe('digest and review delivery', () => {
     assert.doesNotMatch(telegram.messages[0].text, /Recurring theme/u);
   });
 
+  it('uses a grounded deterministic digest when a day is too large for one model request', async () => {
+    const repository = new NotificationStore();
+    repository.profileRows = [profile()];
+    repository.notes = Array.from({ length: 101 }, (_, index) =>
+      note(`${String(index + 1).padStart(8, '0')}-0000-4000-8000-000000000000`),
+    );
+    const generator = new Generator();
+    const telegram = new NotificationTelegram();
+    const result = await processNotifications({
+      cronSecret: CRON_SECRET,
+      repository,
+      digestGenerator: generator,
+      telegram,
+      now: () => new Date('2026-08-02T15:35:00.000Z'),
+    });
+
+    assert.equal(result.digestsSent, 1);
+    assert.equal(generator.calls, 0);
+    assert.equal(repository.persisted[0].captureCount, 101);
+    assert.deepEqual(repository.persisted[0].themes, []);
+    assert.equal(repository.persisted[0].connection, null);
+  });
+
   it('deduplicates repeated and concurrent processors', async () => {
     const repository = new NotificationStore();
     repository.profileRows = [profile()];

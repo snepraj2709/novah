@@ -13,7 +13,11 @@ export interface AccountDeletionRepository {
 export interface AccountDeletionDependencies {
   authenticator: Authenticator;
   repository: AccountDeletionRepository;
+  now?: () => Date;
 }
+
+const MAX_REAUTHENTICATION_AGE_MS = 5 * 60 * 1_000;
+const MAX_CLOCK_SKEW_MS = 30 * 1_000;
 
 export async function handleAccountDeletion(
   request: Request,
@@ -26,6 +30,22 @@ export async function handleAccountDeletion(
       400,
       'bad_request',
       'Account deletion request is invalid.',
+    );
+  }
+
+  const now = (dependencies.now ?? (() => new Date()))().getTime();
+  const passwordAuthenticatedAt = Date.parse(
+    user.passwordAuthenticatedAt ?? '',
+  );
+  if (
+    !Number.isFinite(passwordAuthenticatedAt) ||
+    passwordAuthenticatedAt > now + MAX_CLOCK_SKEW_MS ||
+    now - passwordAuthenticatedAt > MAX_REAUTHENTICATION_AGE_MS
+  ) {
+    throw new ApiError(
+      403,
+      'reauthentication_required',
+      'Sign in again before deleting your account.',
     );
   }
 

@@ -42,6 +42,45 @@ async function createUser(admin, email) {
   return data.user;
 }
 
+async function assertAccountDeletionIsolation(admin, configuration) {
+  const { data: users, error: usersError } = await admin.auth.admin.listUsers({
+    perPage: 1_000,
+  });
+  if (usersError) throw usersError;
+  if (users.users.some((user) => user.email === EMAIL_A)) {
+    throw new Error('Deleted fixture account A still exists.');
+  }
+  const clientA = createClient(configuration.API_URL, configuration.ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const clientB = createClient(configuration.API_URL, configuration.ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const [signInA, signInB] = await Promise.all([
+    clientA.auth.signInWithPassword({ email: EMAIL_A, password: PASSWORD }),
+    clientB.auth.signInWithPassword({ email: EMAIL_B, password: PASSWORD }),
+  ]);
+  if (!signInA.error) throw new Error('Deleted fixture account A can sign in.');
+  if (signInB.error) throw signInB.error;
+  const { data: notesB, error: notesBError } = await clientB
+    .from('notes')
+    .select('summary');
+  if (
+    notesBError ||
+    notesB.length !== 1 ||
+    notesB[0]?.summary !== 'USER B PRIVATE SENTINEL'
+  ) {
+    throw notesBError ?? new Error('Account deletion affected user B.');
+  }
+  const { count: userARows, error: cascadeError } = await admin
+    .from('notes')
+    .select('id', { count: 'exact', head: true })
+    .eq('summary', 'User A owns this visible dashboard note.');
+  if (cascadeError || userARows !== 0) {
+    throw cascadeError ?? new Error('Deleted account rows did not cascade.');
+  }
+}
+
 async function main() {
   const configuration = localConfiguration();
   const admin = createClient(
@@ -52,51 +91,7 @@ async function main() {
     },
   );
   if (process.argv.includes('--assert-account-delete')) {
-    const { data: users, error: usersError } = await admin.auth.admin.listUsers(
-      { perPage: 1_000 },
-    );
-    if (usersError) throw usersError;
-    if (users.users.some((user) => user.email === EMAIL_A)) {
-      throw new Error('Deleted fixture account A still exists.');
-    }
-    const clientA = createClient(
-      configuration.API_URL,
-      configuration.ANON_KEY,
-      {
-        auth: { persistSession: false, autoRefreshToken: false },
-      },
-    );
-    const clientB = createClient(
-      configuration.API_URL,
-      configuration.ANON_KEY,
-      {
-        auth: { persistSession: false, autoRefreshToken: false },
-      },
-    );
-    const [signInA, signInB] = await Promise.all([
-      clientA.auth.signInWithPassword({ email: EMAIL_A, password: PASSWORD }),
-      clientB.auth.signInWithPassword({ email: EMAIL_B, password: PASSWORD }),
-    ]);
-    if (!signInA.error)
-      throw new Error('Deleted fixture account A can still sign in.');
-    if (signInB.error) throw signInB.error;
-    const { data: notesB, error: notesBError } = await clientB
-      .from('notes')
-      .select('summary');
-    if (
-      notesBError ||
-      notesB.length !== 1 ||
-      notesB[0]?.summary !== 'USER B PRIVATE SENTINEL'
-    ) {
-      throw notesBError ?? new Error('Account deletion affected user B.');
-    }
-    const { count: userARows, error: cascadeError } = await admin
-      .from('notes')
-      .select('id', { count: 'exact', head: true })
-      .eq('summary', 'User A owns this visible dashboard note.');
-    if (cascadeError || userARows !== 0) {
-      throw cascadeError ?? new Error('Deleted account rows did not cascade.');
-    }
+    await assertAccountDeletionIsolation(admin, configuration);
     console.log(JSON.stringify({ accountDeletionIsolation: true }));
     return;
   }
@@ -238,6 +233,77 @@ async function main() {
   if (visibleError) throw visibleError;
   if (visibleNotes.length !== 1 || visibleNotes[0]?.user_id !== userA.id) {
     throw new Error('Authenticated network isolation verification failed.');
+  }
+
+  if (process.argv.includes('--exercise-account-delete')) {
+    try {
+      const endpoint = `${configuration.API_URL}/functions/v1/delete-account`;
+      const unauthorized = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (unauthorized.status !== 401) {
+        throw new Error('Account deletion accepted an unsigned request.');
+      }
+
+      const accessToken = signIn.data.session?.access_token;
+      if (!accessToken) throw new Error('Password sign-in token is missing.');
+      const authorizedHeaders = {
+        apikey: configuration.ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      };
+      const forbiddenOrigin = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          ...authorizedHeaders,
+          Origin: 'https://not-novah.example',
+        },
+        body: '{}',
+      });
+      if (forbiddenOrigin.status !== 403) {
+        throw new Error(
+          'Account deletion accepted an unlisted browser origin.',
+        );
+      }
+
+      const deleted = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          ...authorizedHeaders,
+          Origin: 'http://127.0.0.1:5173',
+        },
+        body: '{}',
+      });
+      const payload = await deleted.json();
+      if (deleted.status !== 200 || payload?.deleted !== true) {
+        const errorCode =
+          payload &&
+          typeof payload === 'object' &&
+          payload.error &&
+          typeof payload.error === 'object' &&
+          typeof payload.error.code === 'string'
+            ? payload.error.code
+            : 'unknown';
+        throw new Error(
+          `Fresh password authentication did not delete account A (${deleted.status}, ${errorCode}).`,
+        );
+      }
+      await assertAccountDeletionIsolation(admin, configuration);
+      console.log(
+        JSON.stringify({
+          accountDeletionEndpoint: true,
+          unsignedDenied: true,
+          unlistedOriginDenied: true,
+          callerCascade: true,
+          otherUserIsolated: true,
+        }),
+      );
+    } finally {
+      await deleteFixtureUsers(admin);
+    }
+    return;
   }
 
   console.log(

@@ -293,7 +293,7 @@ select extensions.lives_ok(
     ) values (
       '50000000-0000-4000-8000-00000000000a',
       '00000000-0000-4000-8000-00000000000a',
-      'synthetic-phase-1-code-hash',
+      repeat('a', 64),
       now() + interval '10 minutes'
     )
   $$,
@@ -310,7 +310,7 @@ select extensions.throws_ok(
     ) values (
       '50000000-0000-4000-8000-00000000000b',
       '00000000-0000-4000-8000-00000000000a',
-      'synthetic-phase-1-code-hash',
+      repeat('a', 64),
       now() + interval '10 minutes'
     )
   $$,
@@ -329,7 +329,7 @@ select extensions.throws_ok(
     ) values (
       '50000000-0000-4000-8000-00000000000c',
       '00000000-0000-4000-8000-00000000000a',
-      'synthetic-overlong-code-hash',
+      repeat('b', 64),
       now() + interval '11 minutes'
     )
   $$,

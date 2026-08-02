@@ -38,6 +38,19 @@ function required(name: string): string {
   return value;
 }
 
+export function isLocalSupabaseRuntimeUrl(value: string): boolean {
+  try {
+    return new Set([
+      '127.0.0.1',
+      'localhost',
+      'kong',
+      'host.docker.internal',
+    ]).has(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function publicFunctionEnvironment(): PublicFunctionEnvironment {
   const supabaseUrl = required('SUPABASE_URL');
   const publishableKey =
@@ -51,8 +64,7 @@ export function publicFunctionEnvironment(): PublicFunctionEnvironment {
         .split(',')
         .map((value) => value.trim())
         .filter(Boolean),
-      allowLocalDevelopment:
-        supabaseUrl.includes('127.0.0.1') || supabaseUrl.includes('localhost'),
+      allowLocalDevelopment: isLocalSupabaseRuntimeUrl(supabaseUrl),
     },
   };
 }

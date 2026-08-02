@@ -18,6 +18,8 @@ import { secureTelegramSecretMatches } from './telegram-handler.ts';
 
 const WINDOW_MINUTES = 10;
 const PROFILE_CONCURRENCY = 5;
+const MAX_DIGEST_MODEL_NOTES = 100;
+const MAX_DIGEST_MODEL_CHARACTERS = 100_000;
 
 function boundedMessage(text: string): string {
   if (text.length <= MAX_TELEGRAM_MESSAGE_LENGTH) return text;
@@ -187,6 +189,31 @@ function oneNoteDigest(note: DigestEvidenceNote): DailyDigest {
   });
 }
 
+function evidenceCharacters(notes: DigestEvidenceNote[]): number {
+  return notes.reduce(
+    (total, note) =>
+      total +
+      note.originalText.length +
+      (note.personalContext?.length ?? 0) +
+      note.summary.length +
+      note.recallPrompt.length +
+      (note.sourceTitle?.length ?? 0) +
+      (note.sourceUrl?.length ?? 0),
+    0,
+  );
+}
+
+function oversizedDayDigest(notes: DigestEvidenceNote[]): DailyDigest {
+  return dailyDigestSchema.parse({
+    captureCount: notes.length,
+    sourceCount: sourceCount(notes),
+    themes: [],
+    connection: null,
+    reflectionQuestion:
+      'Which idea from today is most worth carrying into tomorrow?',
+  });
+}
+
 function evidenceNumbers(noteIds: string[], evidence: DigestEvidenceNote[]) {
   const numberById = new Map(
     evidence.map((note, index) => [note.noteId, index + 1]),
@@ -341,11 +368,14 @@ export async function processNotifications(
           const digest =
             evidence.length === 1
               ? oneNoteDigest(evidence[0])
-              : await dependencies.digestGenerator.generateDigest({
-                  captureCount: evidence.length,
-                  sourceCount: sourceCount(evidence),
-                  notes: evidence,
-                });
+              : evidence.length > MAX_DIGEST_MODEL_NOTES ||
+                  evidenceCharacters(evidence) > MAX_DIGEST_MODEL_CHARACTERS
+                ? oversizedDayDigest(evidence)
+                : await dependencies.digestGenerator.generateDigest({
+                    captureCount: evidence.length,
+                    sourceCount: sourceCount(evidence),
+                    notes: evidence,
+                  });
           const validated = dailyDigestSchema.parse(digest);
           const digestId = await dependencies.repository.claimDigest(
             profile.userId,

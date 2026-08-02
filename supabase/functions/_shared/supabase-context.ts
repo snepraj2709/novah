@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../packages/shared/src/types/database.ts';
 import type { SearchMatch } from './contracts.ts';
 import { ApiError } from './errors.ts';
+import { passwordAuthenticationTime } from './auth-claims.ts';
 import type {
   AtomicCaptureInput,
   AuthenticatedUser,
@@ -31,7 +32,11 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
     if (error || !data.user)
       throw new ApiError(401, 'unauthorized', 'Authentication is required.');
     this.client = client;
-    return { id: data.user.id };
+    const passwordAuthenticatedAt = passwordAuthenticationTime(accessToken);
+    return {
+      id: data.user.id,
+      ...(passwordAuthenticatedAt ? { passwordAuthenticatedAt } : {}),
+    };
   }
 
   private authenticatedClient(): SupabaseClient<Database> {

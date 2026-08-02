@@ -27,12 +27,29 @@ export class SupabaseNotificationRepository implements NotificationRepository {
   }
 
   async profiles(): Promise<NotificationProfile[]> {
-    const { data, error } = await this.client
-      .from('profiles')
-      .select('user_id, telegram_chat_id, timezone, digest_time, review_time')
-      .not('telegram_chat_id', 'is', null);
-    if (error) throw databaseFailure();
-    return (data ?? []).flatMap((profile) =>
+    type ProfileRow = Pick<
+      Database['public']['Tables']['profiles']['Row'],
+      | 'user_id'
+      | 'telegram_chat_id'
+      | 'timezone'
+      | 'digest_time'
+      | 'review_time'
+    >;
+    const rows: ProfileRow[] = [];
+    const pageSize = 1_000;
+    for (let start = 0; ; start += pageSize) {
+      const { data, error } = await this.client
+        .from('profiles')
+        .select('user_id, telegram_chat_id, timezone, digest_time, review_time')
+        .not('telegram_chat_id', 'is', null)
+        .order('user_id', { ascending: true })
+        .range(start, start + pageSize - 1);
+      if (error) throw databaseFailure();
+      const page = data ?? [];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
+    return rows.flatMap((profile) =>
       profile.telegram_chat_id === null
         ? []
         : [
@@ -51,20 +68,30 @@ export class SupabaseNotificationRepository implements NotificationRepository {
     userId: string,
     digestDate: string,
   ): Promise<DigestEvidenceNote[]> {
-    const { data, error } = await this.client.rpc('notification_digest_notes', {
-      input_user_id: userId,
-      input_digest_date: digestDate,
-    });
-    if (error) throw databaseFailure();
-    return (data ?? []).map((note) => ({
-      noteId: note.note_id,
-      originalText: note.original_text,
-      personalContext: note.personal_context,
-      summary: note.summary,
-      recallPrompt: note.recall_prompt,
-      sourceTitle: note.source_title,
-      sourceUrl: note.source_url,
-    }));
+    const evidence: DigestEvidenceNote[] = [];
+    const pageSize = 1_000;
+    for (let start = 0; ; start += pageSize) {
+      const { data, error } = await this.client
+        .rpc('notification_digest_notes', {
+          input_user_id: userId,
+          input_digest_date: digestDate,
+        })
+        .range(start, start + pageSize - 1);
+      if (error) throw databaseFailure();
+      const page = data ?? [];
+      evidence.push(
+        ...page.map((note) => ({
+          noteId: note.note_id,
+          originalText: note.original_text,
+          personalContext: note.personal_context,
+          summary: note.summary,
+          recallPrompt: note.recall_prompt,
+          sourceTitle: note.source_title,
+          sourceUrl: note.source_url,
+        })),
+      );
+      if (page.length < pageSize) return evidence;
+    }
   }
 
   async claimDigest(
