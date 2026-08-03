@@ -794,8 +794,15 @@ select {
   gap: 1rem;
   margin-top: 1.5rem;
 }
+.form-stack input {
+  font-weight: 500;
+}
 .auth-switch {
   margin-top: 1.2rem;
+}
+.auth-switch,
+.privacy-link {
+  font-weight: 500;
 }
 .privacy-link {
   justify-self: center;

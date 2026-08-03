@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 import { errorMessage } from '../lib/errors.ts';
 import { navigate } from '../lib/routes.ts';
@@ -10,6 +11,7 @@ export function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -86,16 +88,34 @@ export function AuthPage() {
             </label>
             <label>
               Password
-              <input
-                type="password"
-                autoComplete={
-                  mode === 'sign-in' ? 'current-password' : 'new-password'
-                }
-                minLength={8}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
+              <span className="relative block">
+                <input
+                  className="w-full pr-12"
+                  type={passwordVisible ? 'text' : 'password'}
+                  autoComplete={
+                    mode === 'sign-in' ? 'current-password' : 'new-password'
+                  }
+                  minLength={8}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute top-1/2 right-1 grid size-10 -translate-y-1/2 cursor-pointer place-items-center rounded-lg border-0 bg-transparent p-0 text-[var(--muted)] hover:text-[var(--green)]"
+                  aria-label={
+                    passwordVisible ? 'Hide password' : 'Show password'
+                  }
+                  aria-pressed={passwordVisible}
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                >
+                  {passwordVisible ? (
+                    <EyeOff size={20} aria-hidden="true" />
+                  ) : (
+                    <Eye size={20} aria-hidden="true" />
+                  )}
+                </button>
+              </span>
             </label>
             {error && (
               <p className="form-message error" role="alert">
@@ -126,6 +146,7 @@ export function AuthPage() {
               setMode((current) =>
                 current === 'sign-in' ? 'sign-up' : 'sign-in',
               );
+              setPasswordVisible(false);
               setError(null);
               setMessage(null);
             }}
