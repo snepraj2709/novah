@@ -7,37 +7,50 @@ function noteTypeLabel(value: string): string {
 
 export function NoteCard({
   note,
+  onOpen,
   onDelete,
 }: {
   note: DashboardNote;
+  onOpen: (note: DashboardNote) => void;
   onDelete?: (note: DashboardNote) => void;
 }) {
+  const typeLabel = noteTypeLabel(note.noteType);
+  const accessibleTypeLabel = typeLabel.endsWith('note')
+    ? typeLabel
+    : `${typeLabel} note`;
+
   return (
     <article className="note-card">
-      <h3 className="sr-only">{noteTypeLabel(note.noteType)} note</h3>
-      <div className="note-card-topline">
-        <span className="type-pill">{noteTypeLabel(note.noteType)}</span>
-        <time dateTime={note.capturedAt}>
-          {formatDateTime(note.capturedAt)}
-        </time>
-      </div>
-      <p className="original-note">{note.originalText}</p>
-      {note.personalContext && (
-        <blockquote>
-          <span>Why it mattered</span>
-          {note.personalContext}
-        </blockquote>
-      )}
-      <footer>
-        <div className="source-line">
-          {note.sourceUrl ? (
-            <a href={note.sourceUrl} target="_blank" rel="noreferrer">
-              {note.sourceTitle ?? 'Open source'} ↗
-            </a>
-          ) : (
-            <span>{note.sourceTitle ?? 'Personal note'}</span>
-          )}
+      <div
+        className="note-card-trigger"
+        role="button"
+        tabIndex={0}
+        aria-label={`Open full ${accessibleTypeLabel}`}
+        onClick={() => onOpen(note)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onOpen(note);
+          }
+        }}
+      >
+        <h3 className="sr-only">{accessibleTypeLabel}</h3>
+        <div className="note-card-topline">
+          <span className="type-pill">{typeLabel}</span>
+          <time dateTime={note.capturedAt}>
+            {formatDateTime(note.capturedAt)}
+          </time>
         </div>
+        <p className="original-note">{note.originalText}</p>
+        {note.personalContext && (
+          <blockquote>
+            <span>Why it mattered</span>
+            {note.personalContext}
+          </blockquote>
+        )}
+      </div>
+      <footer>
+        <div className="source-line"></div>
         {onDelete && (
           <button
             type="button"

@@ -6,7 +6,13 @@ import {
   LoadingState,
 } from '../components/AsyncState.tsx';
 import { NoteCard } from '../components/NoteCard.tsx';
-import { loadProfile, loadToday, type TodayData } from '../lib/dashboard.ts';
+import { NoteDetailDrawer } from '../components/NoteDetailDrawer.tsx';
+import {
+  loadProfile,
+  loadToday,
+  type DashboardNote,
+  type TodayData,
+} from '../lib/dashboard.ts';
 import { errorMessage } from '../lib/errors.ts';
 import { navigate } from '../lib/routes.ts';
 import { formatDate } from '../lib/time.ts';
@@ -15,8 +21,10 @@ export function TodayPage({ userId }: { userId: string }) {
   const [data, setData] = useState<TodayData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailNote, setDetailNote] = useState<DashboardNote | null>(null);
 
   const load = useCallback(async () => {
+    setDetailNote(null);
     setLoading(true);
     setError(null);
     try {
@@ -135,11 +143,18 @@ export function TodayPage({ userId }: { userId: string }) {
             </div>
             <div className="note-grid">
               {data.notes.map((note) => (
-                <NoteCard note={note} key={note.id} />
+                <NoteCard note={note} key={note.id} onOpen={setDetailNote} />
               ))}
             </div>
           </section>
         </>
+      )}
+
+      {detailNote && (
+        <NoteDetailDrawer
+          note={detailNote}
+          onClose={() => setDetailNote(null)}
+        />
       )}
     </div>
   );

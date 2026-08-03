@@ -364,6 +364,26 @@
   background: var(--paper);
   box-shadow: 0 8px 30px rgba(23, 53, 44, 0.05);
 }
+.note-card-trigger {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin: -0.65rem -0.65rem 0;
+  padding: 0.65rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s;
+}
+.note-card-trigger:hover {
+  background: var(--green-pale);
+}
+.note-card-trigger:focus-visible {
+  outline: 3px solid rgba(32, 91, 72, 0.3);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--paper);
+}
 .note-card-topline {
   display: flex;
   align-items: center;
@@ -580,6 +600,141 @@ select {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
 }
 
+.note-detail-dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(30rem, 100vw);
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: -18px 0 55px rgba(13, 37, 30, 0.22);
+}
+.note-detail-dialog::backdrop {
+  background: rgba(13, 37, 30, 0.55);
+}
+.note-detail-scroll {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.note-detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: calc(1.25rem + env(safe-area-inset-top))
+    calc(1.25rem + env(safe-area-inset-right)) 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 253, 247, 0.97);
+  backdrop-filter: blur(16px);
+}
+.note-detail-header h2 {
+  margin: 0.65rem 0 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+.note-detail-close {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--paper);
+  color: var(--green-dark);
+  font-weight: 750;
+  cursor: pointer;
+}
+.note-detail-close:hover {
+  background: var(--green-pale);
+}
+.note-detail-close [aria-hidden='true'] {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.note-detail-content {
+  display: grid;
+  gap: 2rem;
+  padding: 2rem calc(1.5rem + env(safe-area-inset-right))
+    calc(2rem + env(safe-area-inset-bottom))
+    calc(1.5rem + env(safe-area-inset-left));
+}
+.note-detail-content section {
+  min-width: 0;
+}
+.note-detail-content .eyebrow {
+  margin-bottom: 0.6rem;
+}
+.note-detail-original,
+.note-detail-context p {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.note-detail-original {
+  font-size: 1.08rem;
+}
+.note-detail-context {
+  padding: 1rem 1.1rem;
+  border-left: 3px solid var(--gold);
+  background: #fbf7e9;
+}
+.note-detail-context h3 {
+  margin-bottom: 0.55rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.note-detail-provenance {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+.note-detail-provenance h3 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+.note-detail-provenance dl {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+}
+.note-detail-provenance dl > div {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 1rem;
+}
+.note-detail-provenance dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+.note-detail-provenance dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.note-detail-provenance a {
+  color: var(--green);
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
 .auth-layout {
   display: grid;
   min-height: 100vh;
@@ -732,6 +887,15 @@ select {
 }
 
 @media (max-width: 640px) {
+  .note-detail-dialog {
+    width: 100vw;
+  }
+  .note-detail-header {
+    padding-left: calc(1rem + env(safe-area-inset-left));
+  }
+  .note-detail-content {
+    padding-top: 1.5rem;
+  }
   .split-heading,
   .library-toolbar {
     align-items: stretch;

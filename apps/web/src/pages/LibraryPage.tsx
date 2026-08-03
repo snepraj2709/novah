@@ -15,6 +15,7 @@ import {
 } from '../components/AsyncState.tsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.tsx';
 import { NoteCard } from '../components/NoteCard.tsx';
+import { NoteDetailDrawer } from '../components/NoteDetailDrawer.tsx';
 import { searchNotes } from '../lib/api.ts';
 import {
   deleteOwnedNote,
@@ -48,6 +49,7 @@ export function LibraryPage({ userId }: { userId: string }) {
   const [exporting, setExporting] = useState<'json' | 'markdown' | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DashboardNote | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [detailNote, setDetailNote] = useState<DashboardNote | null>(null);
   const browseRequest = useRef(0);
   const searchRequest = useRef(0);
 
@@ -96,6 +98,7 @@ export function LibraryPage({ userId }: { userId: string }) {
 
   async function runSearch(normalized: string) {
     const requestId = ++searchRequest.current;
+    setDetailNote(null);
     setSearching(true);
     setError(null);
     setPage(0);
@@ -113,6 +116,7 @@ export function LibraryPage({ userId }: { userId: string }) {
 
   function clearSearch() {
     searchRequest.current += 1;
+    setDetailNote(null);
     setSearching(false);
     setQuery('');
     setActiveSearchQuery(null);
@@ -184,6 +188,7 @@ export function LibraryPage({ userId }: { userId: string }) {
         setTotal((current) => Math.max(0, current - 1));
         if (notes.length === 1 && page > 0) setPage(page - 1);
       }
+      if (detailNote?.id === deleteTarget.id) setDetailNote(null);
       setDeleteTarget(null);
     } catch (cause) {
       setError(errorMessage(cause));
@@ -246,6 +251,7 @@ export function LibraryPage({ userId }: { userId: string }) {
             onChange={(event) => {
               browseRequest.current += 1;
               searchRequest.current += 1;
+              setDetailNote(null);
               setSearching(false);
               setError(null);
               setNoteType(event.target.value as NoteType | 'all');
@@ -318,7 +324,12 @@ export function LibraryPage({ userId }: { userId: string }) {
           </div>
           <div className="note-grid">
             {visibleNotes.map((note) => (
-              <NoteCard key={note.id} note={note} onDelete={setDeleteTarget} />
+              <NoteCard
+                key={note.id}
+                note={note}
+                onOpen={setDetailNote}
+                onDelete={setDeleteTarget}
+              />
             ))}
           </div>
           {pageCount > 1 && (
@@ -327,7 +338,10 @@ export function LibraryPage({ userId }: { userId: string }) {
                 className="button ghost"
                 type="button"
                 disabled={page === 0}
-                onClick={() => setPage((value) => Math.max(0, value - 1))}
+                onClick={() => {
+                  setDetailNote(null);
+                  setPage((value) => Math.max(0, value - 1));
+                }}
               >
                 Previous
               </button>
@@ -338,15 +352,23 @@ export function LibraryPage({ userId }: { userId: string }) {
                 className="button ghost"
                 type="button"
                 disabled={page + 1 >= pageCount}
-                onClick={() =>
-                  setPage((value) => Math.min(pageCount - 1, value + 1))
-                }
+                onClick={() => {
+                  setDetailNote(null);
+                  setPage((value) => Math.min(pageCount - 1, value + 1));
+                }}
               >
                 Next
               </button>
             </nav>
           )}
         </>
+      )}
+
+      {detailNote && (
+        <NoteDetailDrawer
+          note={detailNote}
+          onClose={() => setDetailNote(null)}
+        />
       )}
 
       {deleteTarget && (
