@@ -15,6 +15,7 @@ import type { PracticeRepository } from '../_shared/practice-types.ts';
 import type { Authenticator } from '../_shared/types.ts';
 
 const NOTE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const ENTRY_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const PRACTICE: PracticeState = {
   noteId: NOTE_ID,
   status: 'active',
@@ -28,19 +29,24 @@ const PRACTICE: PracticeState = {
   lastPractisedAt: null,
 };
 const ENTRY: PracticeEntry = {
-  id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  id: ENTRY_ID,
   kind: 'reflection',
   text: 'A normalized reflection.',
   sourceChannel: 'web',
   createdAt: '2026-08-03T12:00:00.000Z',
 };
 
-function request(body: unknown, origin?: string): Request {
+function request(
+  body: unknown,
+  origin?: string,
+  entryIdempotencyKey = ENTRY_ID,
+): Request {
   return new Request('http://localhost/functions/v1/manage-practice', {
     method: 'POST',
     headers: {
       Authorization: 'Bearer synthetic',
       'Content-Type': 'application/json',
+      'Idempotency-Key': entryIdempotencyKey,
       ...(origin ? { Origin: origin } : {}),
     },
     body: JSON.stringify(body),
@@ -49,7 +55,12 @@ function request(body: unknown, origin?: string): Request {
 
 class Repository implements PracticeRepository {
   calls: Array<Exclude<ManagePracticeRequest, { action: 'addEntry' }>> = [];
-  entries: Array<{ noteId: string; entryKind: string; text: string }> = [];
+  entries: Array<{
+    noteId: string;
+    entryKind: string;
+    text: string;
+    entryId: string;
+  }> = [];
   async managePractice(
     request: Exclude<ManagePracticeRequest, { action: 'addEntry' }>,
   ) {
@@ -60,9 +71,13 @@ class Repository implements PracticeRepository {
     noteId: string,
     entryKind: PracticeEntry['kind'],
     text: string,
+    entryId: string,
   ) {
-    this.entries.push({ noteId, entryKind, text });
-    return { practice: PRACTICE, entry: { ...ENTRY, kind: entryKind, text } };
+    this.entries.push({ noteId, entryKind, text, entryId });
+    return {
+      practice: PRACTICE,
+      entry: { ...ENTRY, id: entryId, kind: entryKind, text },
+    };
   }
 }
 
@@ -131,12 +146,42 @@ describe('manage-practice contract', () => {
     );
     assert.equal(response.status, 200);
     assert.deepEqual(repository.entries, [
-      { noteId: NOTE_ID, entryKind: 'story', text: 'A story.' },
+      {
+        noteId: NOTE_ID,
+        entryKind: 'story',
+        text: 'A story.',
+        entryId: ENTRY_ID,
+      },
     ]);
     assert.deepEqual(await response.json(), {
       practice: PRACTICE,
       entry: { ...ENTRY, kind: 'story', text: 'A story.' },
     });
+  });
+
+  it('requires and forwards a UUID Idempotency-Key for entries', async () => {
+    for (const key of ['', 'not-a-uuid']) {
+      const repository = new Repository();
+      await assert.rejects(
+        () =>
+          handleManagePractice(
+            request(
+              {
+                action: 'addEntry',
+                noteId: NOTE_ID,
+                entryKind: 'reflection',
+                text: 'Retry-safe reflection.',
+              },
+              undefined,
+              key,
+            ),
+            { authenticator, repository },
+          ),
+        (error: unknown) =>
+          error instanceof ApiError && error.code === 'bad_request',
+      );
+      assert.equal(repository.entries.length, 0);
+    }
   });
 
   it('returns entry_too_long before repository access', async () => {

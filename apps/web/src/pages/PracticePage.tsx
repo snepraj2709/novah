@@ -139,6 +139,7 @@ export function PracticePage({ userId }: { userId: string }) {
                       void lifecycle(selected, action)
                     }
                     checkInWaiting={section.checkInWaiting}
+                    showFullNote
                     {...(section.reread
                       ? {
                           onReread: (selected: DashboardNote) =>

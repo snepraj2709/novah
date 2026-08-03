@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(30);
+select extensions.plan(33);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -133,11 +133,39 @@ select extensions.is(
   'an owner can read their complete entry thread'
 );
 select extensions.lives_ok(
-  $$ select * from public.add_practice_entry('41000000-0000-4000-8000-000000000002', 'reflection', 'Browser reflection.') $$,
+  $$ select * from public.add_practice_entry('41000000-0000-4000-8000-000000000002', 'reflection', 'Browser reflection.', '43000000-0000-4000-8000-000000000001') $$,
   'an owner can append through the browser RPC'
 );
+select extensions.is(
+  (
+    select entry_id
+    from public.add_practice_entry(
+      '41000000-0000-4000-8000-000000000002',
+      'reflection',
+      'Browser reflection.',
+      '43000000-0000-4000-8000-000000000001'
+    )
+  ),
+  '43000000-0000-4000-8000-000000000001'::uuid,
+  'retrying a web entry with the same key returns the original entry'
+);
+select extensions.is(
+  (
+    select count(*)
+    from public.practice_entries
+    where id = '43000000-0000-4000-8000-000000000001'
+  ),
+  1::bigint,
+  'retrying a web entry does not append duplicate content'
+);
 select extensions.throws_ok(
-  $$ select * from public.add_practice_entry('41000000-0000-4000-8000-00000000000b', 'reflection', 'Cross-user entry.') $$,
+  $$ select * from public.add_practice_entry('41000000-0000-4000-8000-000000000002', 'reflection', 'Different content.', '43000000-0000-4000-8000-000000000001') $$,
+  '23514',
+  'invalid_transition',
+  'reusing an entry key for different content is rejected'
+);
+select extensions.throws_ok(
+  $$ select * from public.add_practice_entry('41000000-0000-4000-8000-00000000000b', 'reflection', 'Cross-user entry.', '43000000-0000-4000-8000-000000000002') $$,
   'P0002',
   'practice_not_found',
   'an owner cannot append to another user note'

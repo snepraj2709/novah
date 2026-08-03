@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(23);
+select extensions.plan(26);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -121,10 +121,42 @@ select extensions.is(
     '30000000-0000-4000-8000-00000000000a',
     '31000000-0000-4000-8000-000000000002',
     '2026-08-05',
-    '2026-08-05T00:02:00Z'
+    '2026-08-05T00:00:00Z'
   ),
   true,
   'a claimed Practice can be marked sent for the user-local day'
+);
+select extensions.is(
+  (
+    select count(*)
+    from public.claim_due_practices(
+      '30000000-0000-4000-8000-00000000000a',
+      '2026-08-05',
+      '2026-08-05T00:15:01Z'
+    )
+  ),
+  1::bigint,
+  'an expired active notification claim can be retried'
+);
+select extensions.is(
+  public.mark_practice_notification_sent(
+    '30000000-0000-4000-8000-00000000000a',
+    '31000000-0000-4000-8000-000000000003',
+    '2026-08-05',
+    '2026-08-05T00:00:00Z'
+  ),
+  false,
+  'a stale worker cannot clear a newer active notification lease'
+);
+select extensions.is(
+  public.mark_practice_notification_sent(
+    '30000000-0000-4000-8000-00000000000a',
+    '31000000-0000-4000-8000-000000000003',
+    '2026-08-05',
+    '2026-08-05T00:15:01Z'
+  ),
+  true,
+  'the current active notification lease can be marked sent'
 );
 
 set local role authenticated;

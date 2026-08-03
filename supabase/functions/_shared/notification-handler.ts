@@ -192,12 +192,13 @@ export async function processNotifications(
       errors: 0,
     };
     const window = scheduleWindow(now, profile);
+    const claimedAt = now.toISOString();
     if (!window.practiceDate) return result;
     try {
       await dependencies.repository.reconcileDuePauses(
         profile.userId,
-        window.practiceDate,
-        now.toISOString(),
+        window.localDate,
+        claimedAt,
       );
     } catch {
       result.errors += 1;
@@ -209,7 +210,7 @@ export async function processNotifications(
     try {
       readyPractices = await dependencies.repository.claimReadyPractices(
         profile.userId,
-        now.toISOString(),
+        claimedAt,
       );
     } catch {
       result.errors += 1;
@@ -235,7 +236,8 @@ export async function processNotifications(
           await dependencies.repository.markReadyPracticeSent(
             profile.userId,
             practice.noteId,
-            window.practiceDate,
+            window.localDate,
+            claimedAt,
           )
         ) {
           result.readySent += 1;
@@ -252,7 +254,7 @@ export async function processNotifications(
       practices = await dependencies.repository.claimDuePractices(
         profile.userId,
         window.practiceDate,
-        now.toISOString(),
+        claimedAt,
       );
     } catch {
       result.errors += 1;
@@ -272,7 +274,7 @@ export async function processNotifications(
             profile.userId,
             practice.noteId,
             window.practiceDate,
-            now.toISOString(),
+            claimedAt,
           )
         ) {
           result.practicesSent += 1;
@@ -289,7 +291,7 @@ export async function processNotifications(
       checkIns = await dependencies.repository.claimDueCheckIns(
         profile.userId,
         window.practiceDate,
-        now.toISOString(),
+        claimedAt,
       );
     } catch {
       result.errors += 1;
@@ -326,6 +328,7 @@ export async function processNotifications(
             profile.userId,
             checkIns.map((checkIn) => checkIn.noteId),
             window.practiceDate,
+            claimedAt,
           )
         ) {
           result.checkInPacketsSent += 1;

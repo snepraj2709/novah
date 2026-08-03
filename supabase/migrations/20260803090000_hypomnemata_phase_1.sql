@@ -512,14 +512,36 @@ volatile
 security definer
 set search_path = ''
 as $$
+declare
+  current_practice public.note_practices%rowtype;
 begin
+  select practice.* into current_practice
+  from public.note_practices as practice
+  where practice.user_id = input_user_id
+    and practice.note_id = input_note_id
+  for update;
+
+  if current_practice.note_id is null then
+    return false;
+  end if;
+
+  if current_practice.active_notification_claimed_at is null then
+    return current_practice.active_notification_sent_on = input_local_date
+      or current_practice.status <> 'active'
+      or current_practice.next_due_on > input_local_date;
+  end if;
+
+  if current_practice.active_notification_claimed_at <> input_sent_at then
+    return false;
+  end if;
+
   update public.note_practices as practice
   set
     active_notification_sent_on = input_local_date,
     active_notification_claimed_at = null
   where practice.user_id = input_user_id
     and practice.note_id = input_note_id
-    and practice.active_notification_claimed_at is not null
+    and practice.active_notification_claimed_at = input_sent_at
     and practice.status = 'active';
   return found;
 end;

@@ -701,7 +701,8 @@ to service_role;
 create function public.mark_ready_practice_sent(
   input_user_id uuid,
   input_note_id uuid,
-  input_local_date date
+  input_local_date date,
+  input_claimed_at timestamptz
 )
 returns boolean
 language plpgsql
@@ -709,7 +710,29 @@ volatile
 security definer
 set search_path = ''
 as $$
+declare
+  current_practice public.note_practices%rowtype;
 begin
+  select practice.* into current_practice
+  from public.note_practices as practice
+  where practice.user_id = input_user_id
+    and practice.note_id = input_note_id
+  for update;
+
+  if current_practice.note_id is null then
+    return false;
+  end if;
+
+  if current_practice.active_notification_claimed_at is null then
+    return current_practice.active_notification_sent_on is not null
+      or current_practice.status <> 'paused'
+      or current_practice.ready_to_resume = false;
+  end if;
+
+  if current_practice.active_notification_claimed_at <> input_claimed_at then
+    return false;
+  end if;
+
   update public.note_practices as practice
   set
     active_notification_sent_on = input_local_date,
@@ -718,14 +741,14 @@ begin
     and practice.note_id = input_note_id
     and practice.status = 'paused'
     and practice.ready_to_resume
-    and practice.active_notification_claimed_at is not null;
+    and practice.active_notification_claimed_at = input_claimed_at;
   return found;
 end;
 $$;
 
-revoke all on function public.mark_ready_practice_sent(uuid, uuid, date)
+revoke all on function public.mark_ready_practice_sent(uuid, uuid, date, timestamptz)
 from public, anon, authenticated;
-grant execute on function public.mark_ready_practice_sent(uuid, uuid, date)
+grant execute on function public.mark_ready_practice_sent(uuid, uuid, date, timestamptz)
 to service_role;
 
 create function public.claim_due_check_ins(
@@ -783,7 +806,8 @@ to service_role;
 create function public.mark_check_ins_sent(
   input_user_id uuid,
   input_note_ids uuid[],
-  input_local_date date
+  input_local_date date,
+  input_claimed_at timestamptz
 )
 returns boolean
 language plpgsql
@@ -792,7 +816,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  updated_count integer;
+  owned_count integer;
 begin
   if input_note_ids is null
     or cardinality(input_note_ids) = 0
@@ -810,15 +834,31 @@ begin
   order by practice.note_id
   for update;
 
-  if (
-    select count(*)
-    from public.note_practices as practice
-    where practice.user_id = input_user_id
-      and practice.note_id = any(input_note_ids)
-      and practice.status = 'integrated'
-      and practice.check_ins_enabled
-      and practice.check_in_notification_claimed_at is not null
-  ) <> cardinality(input_note_ids) then
+  select count(*) into owned_count
+  from public.note_practices as practice
+  where practice.user_id = input_user_id
+    and practice.note_id = any(input_note_ids);
+
+  if owned_count <> cardinality(input_note_ids)
+    or exists (
+      select 1
+      from public.note_practices as practice
+      where practice.user_id = input_user_id
+        and practice.note_id = any(input_note_ids)
+        and practice.check_in_notification_claimed_at is not null
+        and practice.check_in_notification_claimed_at <> input_claimed_at
+    )
+    or exists (
+      select 1
+      from public.note_practices as practice
+      where practice.user_id = input_user_id
+        and practice.note_id = any(input_note_ids)
+        and practice.check_in_notification_claimed_at is null
+        and practice.check_in_notification_sent_on is null
+        and practice.status = 'integrated'
+        and practice.check_ins_enabled
+        and practice.next_check_in_on <= input_local_date
+    ) then
     return false;
   end if;
 
@@ -830,15 +870,14 @@ begin
     and practice.note_id = any(input_note_ids)
     and practice.status = 'integrated'
     and practice.check_ins_enabled
-    and practice.check_in_notification_claimed_at is not null;
-  get diagnostics updated_count = row_count;
-  return updated_count = cardinality(input_note_ids);
+    and practice.check_in_notification_claimed_at = input_claimed_at;
+  return true;
 end;
 $$;
 
-revoke all on function public.mark_check_ins_sent(uuid, uuid[], date)
+revoke all on function public.mark_check_ins_sent(uuid, uuid[], date, timestamptz)
 from public, anon, authenticated;
-grant execute on function public.mark_check_ins_sent(uuid, uuid[], date)
+grant execute on function public.mark_check_ins_sent(uuid, uuid[], date, timestamptz)
 to service_role;
 
 create or replace function public.create_telegram_reply_prompt(

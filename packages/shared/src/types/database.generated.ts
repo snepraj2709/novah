@@ -475,6 +475,7 @@ export type Database = {
     Functions: {
       add_practice_entry: {
         Args: {
+          input_entry_id: string;
           input_kind: Database['public']['Enums']['practice_entry_kind'];
           input_note_id: string;
           input_text: string;
@@ -499,6 +500,7 @@ export type Database = {
       };
       add_practice_entry_core: {
         Args: {
+          input_entry_id?: string;
           input_kind: Database['public']['Enums']['practice_entry_kind'];
           input_note_id: string;
           input_now?: string;
@@ -805,6 +807,7 @@ export type Database = {
       };
       mark_check_ins_sent: {
         Args: {
+          input_claimed_at: string;
           input_local_date: string;
           input_note_ids: string[];
           input_user_id: string;
@@ -826,6 +829,7 @@ export type Database = {
       };
       mark_ready_practice_sent: {
         Args: {
+          input_claimed_at: string;
           input_local_date: string;
           input_note_id: string;
           input_user_id: string;

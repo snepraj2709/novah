@@ -64,6 +64,9 @@ export function NoteDetailDrawer({
   const [promptVisible, setPromptVisible] = useState(false);
   const [saving, setSaving] = useState<'reflection' | 'story' | null>(null);
   const [entryError, setEntryError] = useState<string | null>(null);
+  const entryRetry = useRef<
+    Record<'reflection' | 'story', { text: string; key: string } | null>
+  >({ reflection: null, story: null });
   const [practice, setPractice] = useState(note.practice);
   const [intervalDays, setIntervalDays] = useState(
     note.practice?.intervalDays ?? 1,
@@ -165,15 +168,24 @@ export function NoteDetailDrawer({
     event.preventDefault();
     const text = entryKind === 'reflection' ? reflection : story;
     if (!text.trim() || saving) return;
+    const previousAttempt = entryRetry.current[entryKind];
+    const retry =
+      previousAttempt?.text === text
+        ? previousAttempt
+        : { text, key: crypto.randomUUID() };
+    entryRetry.current[entryKind] = retry;
     setSaving(entryKind);
     setEntryError(null);
     try {
-      const result = await managePractice({
-        action: 'addEntry',
-        noteId: note.id,
-        entryKind,
-        text,
-      });
+      const result = await managePractice(
+        {
+          action: 'addEntry',
+          noteId: note.id,
+          entryKind,
+          text,
+        },
+        retry.key,
+      );
       if (!result.entry) throw new Error('Practice entry is missing.');
       setEntries((current) =>
         [...(current ?? []), result.entry!].sort(
@@ -184,6 +196,7 @@ export function NoteDetailDrawer({
       );
       if (entryKind === 'reflection') setReflection('');
       else setStory('');
+      entryRetry.current[entryKind] = null;
       setPractice(result.practice);
       setIntervalDays(result.practice.intervalDays);
       onPracticeUpdated?.(result.practice);
@@ -549,7 +562,10 @@ export function NoteDetailDrawer({
                     value={reflection}
                     maxLength={MAX_PRACTICE_ENTRY_TEXT_LENGTH}
                     rows={4}
-                    onChange={(event) => setReflection(event.target.value)}
+                    onChange={(event) => {
+                      entryRetry.current.reflection = null;
+                      setReflection(event.target.value);
+                    }}
                   />
                   <button
                     type="submit"
@@ -567,7 +583,10 @@ export function NoteDetailDrawer({
                     value={story}
                     maxLength={MAX_PRACTICE_ENTRY_TEXT_LENGTH}
                     rows={4}
-                    onChange={(event) => setStory(event.target.value)}
+                    onChange={(event) => {
+                      entryRetry.current.story = null;
+                      setStory(event.target.value);
+                    }}
                   />
                   <button
                     type="submit"

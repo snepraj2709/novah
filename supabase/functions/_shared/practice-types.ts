@@ -16,6 +16,7 @@ export interface PracticeRepository {
     noteId: string,
     entryKind: PracticeEntry['kind'],
     text: string,
+    entryId: string,
   ): Promise<{ practice: PracticeState; entry: PracticeEntry }>;
 }
 

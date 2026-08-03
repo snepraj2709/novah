@@ -16,6 +16,7 @@ export function NoteCard({
   onReread,
   onPracticeAction,
   checkInWaiting = false,
+  showFullNote = false,
 }: {
   note: DashboardNote;
   onOpen: (note: DashboardNote) => void;
@@ -24,6 +25,7 @@ export function NoteCard({
   onReread?: (note: DashboardNote) => void;
   onPracticeAction?: (note: DashboardNote, action: PracticeCardAction) => void;
   checkInWaiting?: boolean;
+  showFullNote?: boolean;
 }) {
   const typeLabel = noteTypeLabel(note.noteType);
   const accessibleTypeLabel = typeLabel.endsWith('note')
@@ -52,7 +54,11 @@ export function NoteCard({
             {formatDateTime(note.capturedAt)}
           </time>
         </div>
-        <p className="original-note">{note.originalText}</p>
+        <p
+          className={`original-note${showFullNote ? ' practice-note-full' : ''}`}
+        >
+          {note.originalText}
+        </p>
         {note.personalContext && (
           <blockquote>
             <span>Why it mattered</span>

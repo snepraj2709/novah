@@ -81,6 +81,8 @@ describe('web Practice foundation', () => {
 
     assert.match(practice, /Ready to resume/u);
     assert.match(practice, /Integration check-ins/u);
+    assert.match(practice, /showFullNote/u);
+    assert.match(card, /practice-note-full/u);
     for (const label of [
       'Pause',
       'Integrated',

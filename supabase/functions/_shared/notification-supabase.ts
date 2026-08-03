@@ -121,11 +121,13 @@ export class SupabaseNotificationRepository implements NotificationRepository {
     userId: string,
     noteId: string,
     localDate: string,
+    claimedAt: string,
   ): Promise<boolean> {
     const { data, error } = await this.client.rpc('mark_ready_practice_sent', {
       input_user_id: userId,
       input_note_id: noteId,
       input_local_date: localDate,
+      input_claimed_at: claimedAt,
     });
     if (error) throw databaseFailure();
     return data;
@@ -154,11 +156,13 @@ export class SupabaseNotificationRepository implements NotificationRepository {
     userId: string,
     noteIds: string[],
     localDate: string,
+    claimedAt: string,
   ): Promise<boolean> {
     const { data, error } = await this.client.rpc('mark_check_ins_sent', {
       input_user_id: userId,
       input_note_ids: noteIds,
       input_local_date: localDate,
+      input_claimed_at: claimedAt,
     });
     if (error) throw databaseFailure();
     return data;

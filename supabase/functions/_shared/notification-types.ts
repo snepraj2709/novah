@@ -50,6 +50,7 @@ export interface NotificationRepository {
     userId: string,
     noteId: string,
     localDate: string,
+    claimedAt: string,
   ): Promise<boolean>;
   claimDueCheckIns(
     userId: string,
@@ -60,6 +61,7 @@ export interface NotificationRepository {
     userId: string,
     noteIds: string[],
     localDate: string,
+    claimedAt: string,
   ): Promise<boolean>;
 }
 

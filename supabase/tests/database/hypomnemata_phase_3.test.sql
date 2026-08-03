@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(60);
+select extensions.plan(63);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -171,7 +171,22 @@ select extensions.is(
   'an expired ready notification claim can be retried'
 );
 select extensions.is(
-  public.mark_ready_practice_sent('50000000-0000-4000-8000-00000000000a', '51000000-0000-4000-8000-000000000001', '2026-08-06'),
+  public.mark_ready_practice_sent(
+    '50000000-0000-4000-8000-00000000000a',
+    '51000000-0000-4000-8000-000000000001',
+    '2026-08-06',
+    '2026-08-05T10:33:00Z'
+  ),
+  false,
+  'a stale worker cannot clear a newer ready-notification lease'
+);
+select extensions.is(
+  public.mark_ready_practice_sent(
+    '50000000-0000-4000-8000-00000000000a',
+    '51000000-0000-4000-8000-000000000001',
+    '2026-08-06',
+    '2026-08-05T10:49:01Z'
+  ),
   true,
   'a claimed ready notification can be marked sent'
 );
@@ -247,7 +262,8 @@ select extensions.is(
   public.mark_check_ins_sent(
     '50000000-0000-4000-8000-00000000000a',
     array['51000000-0000-4000-8000-000000000001'::uuid, '51000000-0000-4000-8000-000000000006'::uuid],
-    '2026-09-05'
+    '2026-09-05',
+    '2026-09-04T10:46:01Z'
   ),
   false,
   'a partial or unclaimed grouped packet is rejected atomically'
@@ -257,6 +273,16 @@ select extensions.is(
   0::bigint,
   'a rejected grouped packet marks no item sent'
 );
+create temporary table confirmed_before_mark on commit drop as
+select * from public.manage_practice_core(
+  '50000000-0000-4000-8000-00000000000a', 'confirmIntegrated',
+  '51000000-0000-4000-8000-000000000003', '2026-09-04T10:47:00Z'
+);
+select extensions.is(
+  (select next_check_in_on from confirmed_before_mark),
+  '2026-10-05'::date,
+  'a check-in callback may complete while the delivered group is being marked'
+);
 select extensions.is(
   public.mark_check_ins_sent(
     '50000000-0000-4000-8000-00000000000a',
@@ -265,10 +291,21 @@ select extensions.is(
       '51000000-0000-4000-8000-000000000003'::uuid,
       '51000000-0000-4000-8000-000000000004'::uuid
     ],
-    '2026-09-05'
+    '2026-09-05',
+    '2026-09-04T10:46:01Z'
   ),
   true,
-  'one successful grouped delivery marks every claimed item sent'
+  'one successful grouped delivery marks remaining items after a callback race'
+);
+select extensions.is(
+  (
+    select count(*)
+    from public.note_practices
+    where user_id = '50000000-0000-4000-8000-00000000000a'
+      and check_in_notification_sent_on = '2026-09-05'
+  ),
+  2::bigint,
+  'callback-completed and ignored check-ins retain their distinct delivery state'
 );
 select extensions.is(
   (select count(*) from public.claim_due_check_ins('50000000-0000-4000-8000-00000000000a', '2026-09-06', '2026-09-05T10:30:00Z')),
@@ -279,22 +316,22 @@ select extensions.is(
 create temporary table confirmed on commit drop as
 select * from public.manage_practice_core(
   '50000000-0000-4000-8000-00000000000a', 'confirmIntegrated',
-  '51000000-0000-4000-8000-000000000003', '2026-09-04T10:30:00Z'
+  '51000000-0000-4000-8000-000000000001', '2026-09-04T10:30:00Z'
 );
 select extensions.is((select next_check_in_on from confirmed), '2026-10-05'::date, 'Still integrated schedules thirty days from the current local date');
 select extensions.throws_ok(
-  $$ select * from public.manage_practice_core('50000000-0000-4000-8000-00000000000a', 'confirmIntegrated', '51000000-0000-4000-8000-000000000003', '2026-09-04T10:31:00Z') $$,
+  $$ select * from public.manage_practice_core('50000000-0000-4000-8000-00000000000a', 'confirmIntegrated', '51000000-0000-4000-8000-000000000001', '2026-09-04T10:31:00Z') $$,
   'P0001', 'stale_action', 'a duplicate Still integrated callback is stale and does not advance twice'
 );
 
 create temporary table resumed_integrated on commit drop as
 select * from public.manage_practice_core(
   '50000000-0000-4000-8000-00000000000a', 'resume',
-  '51000000-0000-4000-8000-000000000001', '2026-09-04T10:30:00Z'
+  '51000000-0000-4000-8000-000000000003', '2026-09-04T10:30:00Z'
 );
 select extensions.is((select next_due_on from resumed_integrated), '2026-09-06'::date, 'resuming an integrated Practice is due on the next local day');
 select extensions.throws_ok(
-  $$ select * from public.manage_practice_core('50000000-0000-4000-8000-00000000000a', 'resume', '51000000-0000-4000-8000-000000000001', '2026-09-04T10:31:00Z') $$,
+  $$ select * from public.manage_practice_core('50000000-0000-4000-8000-00000000000a', 'resume', '51000000-0000-4000-8000-000000000003', '2026-09-04T10:31:00Z') $$,
   'P0001', 'stale_action', 'a duplicate Resume practice callback is stale'
 );
 
@@ -315,7 +352,7 @@ select extensions.throws_ok(
 select extensions.is(
   public.create_telegram_reply_prompt(
     '50000000-0000-4000-8000-00000000000a', 850000000001, 9901,
-    '51000000-0000-4000-8000-000000000001', 'interval', '2026-09-04T11:00:00Z'
+    '51000000-0000-4000-8000-000000000003', 'interval', '2026-09-04T11:00:00Z'
   ),
   '2026-09-05T11:00:00Z'::timestamptz,
   'an interval ForceReply prompt expires after twenty-four hours'

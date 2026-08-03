@@ -30,7 +30,8 @@ create or replace function public.add_practice_entry_core(
   input_kind public.practice_entry_kind,
   input_text text,
   input_source_channel public.practice_source_channel,
-  input_now timestamptz default statement_timestamp()
+  input_now timestamptz default statement_timestamp(),
+  input_entry_id uuid default gen_random_uuid()
 )
 returns table (
   note_id uuid,
@@ -59,7 +60,11 @@ declare
   normalized_text text;
   current_practice public.note_practices%rowtype;
   new_entry public.practice_entries%rowtype;
+  entry_created boolean := false;
 begin
+  if input_entry_id is null then
+    raise check_violation using message = 'invalid_transition';
+  end if;
   normalized_text := public.normalize_whitespace(input_text);
   if normalized_text is null or pg_catalog.char_length(normalized_text) = 0 then
     raise check_violation using message = 'invalid_transition';
@@ -88,6 +93,7 @@ begin
   end if;
 
   insert into public.practice_entries (
+    id,
     user_id,
     note_id,
     kind,
@@ -95,15 +101,35 @@ begin
     source_channel,
     created_at
   ) values (
+    input_entry_id,
     input_user_id,
     input_note_id,
     input_kind,
     normalized_text,
     input_source_channel,
     input_now
-  ) returning * into new_entry;
+  ) on conflict (id) do nothing
+  returning * into new_entry;
 
-  if current_practice.status = 'active'
+  if new_entry.id is not null then
+    entry_created := true;
+  else
+    select entry.* into new_entry
+    from public.practice_entries as entry
+    where entry.id = input_entry_id
+      and entry.user_id = input_user_id
+      and entry.note_id = input_note_id
+      and entry.kind = input_kind
+      and entry.text = normalized_text
+      and entry.source_channel = input_source_channel;
+
+    if new_entry.id is null then
+      raise check_violation using message = 'invalid_transition';
+    end if;
+  end if;
+
+  if entry_created
+    and current_practice.status = 'active'
     and current_practice.next_due_on <= local_today then
     update public.note_practices as practice
     set
@@ -136,17 +162,18 @@ $$;
 
 revoke all on function public.add_practice_entry_core(
   uuid, uuid, public.practice_entry_kind, text,
-  public.practice_source_channel, timestamptz
+  public.practice_source_channel, timestamptz, uuid
 ) from public, anon, authenticated;
 grant execute on function public.add_practice_entry_core(
   uuid, uuid, public.practice_entry_kind, text,
-  public.practice_source_channel, timestamptz
+  public.practice_source_channel, timestamptz, uuid
 ) to service_role;
 
 create or replace function public.add_practice_entry(
   input_note_id uuid,
   input_kind public.practice_entry_kind,
-  input_text text
+  input_text text,
+  input_entry_id uuid
 )
 returns table (
   note_id uuid,
@@ -182,16 +209,17 @@ begin
     input_kind,
     input_text,
     'web',
-    statement_timestamp()
+    statement_timestamp(),
+    input_entry_id
   );
 end;
 $$;
 
 revoke all on function public.add_practice_entry(
-  uuid, public.practice_entry_kind, text
+  uuid, public.practice_entry_kind, text, uuid
 ) from public, anon;
 grant execute on function public.add_practice_entry(
-  uuid, public.practice_entry_kind, text
+  uuid, public.practice_entry_kind, text, uuid
 ) to authenticated;
 
 create or replace function public.add_practice_entry_for_user(

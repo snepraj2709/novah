@@ -38,6 +38,7 @@ async function invokeFunction(
     | 'delete-account'
     | 'manage-practice',
   body: unknown,
+  extraHeaders: Record<string, string> = {},
 ): Promise<unknown> {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session) {
@@ -55,6 +56,7 @@ async function invokeFunction(
           apikey: configuration.supabasePublishableKey,
           Authorization: `Bearer ${data.session.access_token}`,
           'Content-Type': 'application/json',
+          ...extraHeaders,
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(FUNCTION_REQUEST_TIMEOUT_MS),
@@ -116,10 +118,14 @@ export async function deleteAccount(): Promise<void> {
 
 export async function managePractice(
   request: ManagePracticeRequest,
+  entryIdempotencyKey?: string,
 ): Promise<ManagePracticeResponse> {
   const payload = await invokeFunction(
     'manage-practice',
     managePracticeRequestSchema.parse(request),
+    request.action === 'addEntry' && entryIdempotencyKey
+      ? { 'Idempotency-Key': entryIdempotencyKey }
+      : {},
   );
   return managePracticeResponseSchema.parse(payload);
 }

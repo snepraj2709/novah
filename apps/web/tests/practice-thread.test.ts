@@ -46,4 +46,18 @@ describe('Living Reflection Thread', () => {
     assert.match(dashboard, /order\('id', \{ ascending: true \}\)/u);
     assert.doesNotMatch(card, /entry\.text|practicePrompt|textarea/u);
   });
+
+  it('reuses a stable entry key after an uncertain web retry', async () => {
+    const [drawer, api] = await Promise.all([
+      readFile(
+        new URL('../src/components/NoteDetailDrawer.tsx', import.meta.url),
+        'utf8',
+      ),
+      readFile(new URL('../src/lib/api.ts', import.meta.url), 'utf8'),
+    ]);
+    assert.match(drawer, /entryRetry/u);
+    assert.match(drawer, /crypto\.randomUUID\(\)/u);
+    assert.match(drawer, /previousAttempt\?\.text === text/u);
+    assert.match(api, /'Idempotency-Key': entryIdempotencyKey/u);
+  });
 });

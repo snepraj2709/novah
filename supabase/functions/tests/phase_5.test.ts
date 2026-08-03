@@ -31,8 +31,13 @@ class Repository implements NotificationRepository {
   readyClaimed = false;
   checkInsClaimed = false;
   marks: Array<{ noteId: string; localDate: string }> = [];
-  readyMarks: Array<{ noteId: string; localDate: string }> = [];
-  checkInMarks: Array<{ noteIds: string[]; localDate: string }> = [];
+  readyMarks: Array<{ noteId: string; localDate: string; claimedAt: string }> =
+    [];
+  checkInMarks: Array<{
+    noteIds: string[];
+    localDate: string;
+    claimedAt: string;
+  }> = [];
   reconciliations: Array<{ userId: string; localDate: string }> = [];
   markResult = true;
 
@@ -68,8 +73,9 @@ class Repository implements NotificationRepository {
     _userId: string,
     noteId: string,
     localDate: string,
+    claimedAt: string,
   ): Promise<boolean> {
-    this.readyMarks.push({ noteId, localDate });
+    this.readyMarks.push({ noteId, localDate, claimedAt });
     return this.markResult;
   }
   async claimDueCheckIns(): Promise<ClaimedCheckIn[]> {
@@ -81,8 +87,9 @@ class Repository implements NotificationRepository {
     _userId: string,
     noteIds: string[],
     localDate: string,
+    claimedAt: string,
   ): Promise<boolean> {
-    this.checkInMarks.push({ noteIds, localDate });
+    this.checkInMarks.push({ noteIds, localDate, claimedAt });
     return this.markResult;
   }
 }
@@ -263,6 +270,23 @@ describe('Practice notification scheduling', () => {
       { userId: USER_ID, localDate: '2026-08-03' },
     ]);
     assert.equal(telegram.messages.length, 0);
+    assert.equal(result.errors, 0);
+  });
+
+  it('reconciles pauses with the current local date across a prior-day delivery window', async () => {
+    const repository = new Repository();
+    repository.profileRows = [
+      profile({ chatId: null, timezone: 'UTC', practiceTime: '23:59:00' }),
+    ];
+    const result = await processNotifications({
+      cronSecret: SECRET,
+      repository,
+      telegram: new Telegram(),
+      now: () => new Date('2026-08-04T00:05:00.000Z'),
+    });
+    assert.deepEqual(repository.reconciliations, [
+      { userId: USER_ID, localDate: '2026-08-04' },
+    ]);
     assert.equal(result.errors, 0);
   });
 

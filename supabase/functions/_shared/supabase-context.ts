@@ -204,12 +204,14 @@ export class SupabaseRequestContext
     noteId: string,
     entryKind: PracticeEntry['kind'],
     text: string,
+    entryId: string,
   ): Promise<{ practice: PracticeState; entry: PracticeEntry }> {
     const client = this.authenticatedClient();
     const { data, error } = await client.rpc('add_practice_entry', {
       input_note_id: noteId,
       input_kind: entryKind,
       input_text: text,
+      input_entry_id: entryId,
     });
     if (error) {
       const code = error.message.match(
