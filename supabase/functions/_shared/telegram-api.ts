@@ -102,6 +102,27 @@ export class TelegramApiClient implements TelegramGateway {
     );
   }
 
+  async sendForceReply(chatId: number, text: string): Promise<number> {
+    const result = (await this.call(
+      'sendMessage',
+      {
+        chat_id: chatId,
+        text,
+        link_preview_options: { is_disabled: true },
+        reply_markup: { force_reply: true, selective: true },
+      },
+      'rate-limit-only',
+    )) as { message_id?: unknown };
+    if (
+      !result ||
+      typeof result.message_id !== 'number' ||
+      !Number.isSafeInteger(result.message_id)
+    ) {
+      throw telegramUnavailable();
+    }
+    return result.message_id;
+  }
+
   async answerCallbackQuery(
     callbackQueryId: string,
     text?: string,

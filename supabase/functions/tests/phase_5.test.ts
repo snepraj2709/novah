@@ -132,6 +132,8 @@ describe('Practice notification scheduling', () => {
       inlineKeyboard: Array<Array<{ callbackData: string }>>;
     };
     assert.equal(options.inlineKeyboard[0][0].callbackData, `p:r:${NOTE_ID}`);
+    assert.equal(options.inlineKeyboard[1][0].callbackData, `p:e:r:${NOTE_ID}`);
+    assert.equal(options.inlineKeyboard[1][1].callbackData, `p:e:s:${NOTE_ID}`);
     assert.ok(practiceCallbackData(NOTE_ID).length <= 64);
   });
 

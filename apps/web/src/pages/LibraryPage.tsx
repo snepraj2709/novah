@@ -454,6 +454,21 @@ export function CollectionPage({ userId }: { userId: string }) {
         <NoteDetailDrawer
           note={detailNote}
           onClose={() => setDetailNote(null)}
+          onPracticeUpdated={(practice) => {
+            setDetailNote((current) =>
+              current ? { ...current, practice } : current,
+            );
+            setNotes((current) =>
+              current.map((note) =>
+                note.id === practice.noteId ? { ...note, practice } : note,
+              ),
+            );
+            if (searchMode) {
+              setSearchPractices((current) =>
+                new Map(current).set(practice.noteId, practice),
+              );
+            }
+          }}
         />
       )}
 

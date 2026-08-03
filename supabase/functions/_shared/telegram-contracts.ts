@@ -29,6 +29,10 @@ const rawMessageSchema = z
     voice: rawVoiceSchema.optional(),
     forward_origin: z.unknown().optional(),
     forward_date: safeInteger.optional(),
+    reply_to_message: z
+      .object({ message_id: safeInteger })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 
@@ -74,6 +78,9 @@ export function parseTelegramUpdate(value: unknown): TelegramUpdate | null {
                       : {}),
                   },
                 }
+              : {}),
+            ...(message.reply_to_message
+              ? { replyToMessageId: message.reply_to_message.message_id }
               : {}),
             forwarded: Boolean(message.forward_origin ?? message.forward_date),
           },

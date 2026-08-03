@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   managePracticeRequestSchema,
   managePracticeResponseSchema,
+  type PracticeEntry,
   type PracticeState,
 } from '../_shared/contracts.ts';
 import { ApiError } from '../_shared/errors.ts';
@@ -25,6 +26,13 @@ const PRACTICE: PracticeState = {
   nextCheckInOn: null,
   lastPractisedAt: null,
 };
+const ENTRY: PracticeEntry = {
+  id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  kind: 'reflection',
+  text: 'A normalized reflection.',
+  sourceChannel: 'web',
+  createdAt: '2026-08-03T12:00:00.000Z',
+};
 
 function request(body: unknown, origin?: string): Request {
   return new Request('http://localhost/functions/v1/manage-practice', {
@@ -40,9 +48,18 @@ function request(body: unknown, origin?: string): Request {
 
 class Repository implements PracticeRepository {
   calls: Array<{ action: string; noteId: string }> = [];
+  entries: Array<{ noteId: string; entryKind: string; text: string }> = [];
   async managePractice(action: 'activate' | 'reread', noteId: string) {
     this.calls.push({ action, noteId });
     return PRACTICE;
+  }
+  async addEntry(
+    noteId: string,
+    entryKind: PracticeEntry['kind'],
+    text: string,
+  ) {
+    this.entries.push({ noteId, entryKind, text });
+    return { practice: PRACTICE, entry: { ...ENTRY, kind: entryKind, text } };
   }
 }
 
@@ -71,12 +88,71 @@ describe('manage-practice contract', () => {
     );
     assert.equal(
       managePracticeRequestSchema.safeParse({
+        action: 'addEntry',
+        noteId: NOTE_ID,
+        entryKind: 'reflection',
+        text: 'Valid reflection.',
+        extra: true,
+      }).success,
+      false,
+    );
+    assert.equal(
+      managePracticeRequestSchema.safeParse({
+        action: 'addEntry',
+        noteId: NOTE_ID,
+        entryKind: 'unsupported',
+        text: 'Invalid kind.',
+      }).success,
+      false,
+    );
+    assert.equal(
+      managePracticeRequestSchema.safeParse({
         action: 'setInterval',
         noteId: NOTE_ID,
         intervalDays: 31,
       }).success,
       false,
     );
+  });
+
+  it('normalizes and returns a strict Reflection or Story entry', async () => {
+    const repository = new Repository();
+    const response = await handleManagePractice(
+      request({
+        action: 'addEntry',
+        noteId: NOTE_ID,
+        entryKind: 'story',
+        text: '  A\n\tstory.  ',
+      }),
+      { authenticator, repository },
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(repository.entries, [
+      { noteId: NOTE_ID, entryKind: 'story', text: 'A story.' },
+    ]);
+    assert.deepEqual(await response.json(), {
+      practice: PRACTICE,
+      entry: { ...ENTRY, kind: 'story', text: 'A story.' },
+    });
+  });
+
+  it('returns entry_too_long before repository access', async () => {
+    const repository = new Repository();
+    await assert.rejects(
+      () =>
+        handleManagePractice(
+          request({
+            action: 'addEntry',
+            noteId: NOTE_ID,
+            entryKind: 'reflection',
+            text: 'x'.repeat(5_001),
+          }),
+          { authenticator, repository },
+        ),
+      (error: unknown) =>
+        error instanceof ApiError && error.code === 'entry_too_long',
+    );
+    assert.equal(repository.entries.length, 0);
   });
 
   it('returns the strict current-state response for activation and reread', async () => {
@@ -98,7 +174,7 @@ describe('manage-practice contract', () => {
     ]);
   });
 
-  it('rejects later-phase actions without calling the repository', async () => {
+  it('rejects Phase 3 actions without calling the repository', async () => {
     const repository = new Repository();
     await assert.rejects(
       () =>

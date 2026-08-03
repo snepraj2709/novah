@@ -5,16 +5,23 @@ import {
   createTelegramWebhookHandler,
   telegramClientRequestId,
 } from '../_shared/telegram-handler.ts';
+import {
+  MAX_TELEGRAM_VOICE_BYTES,
+  MAX_TELEGRAM_VOICE_DURATION_SECONDS,
+} from '../../../packages/shared/src/constants/index.ts';
 import type {
   CaptureNoteRequest,
   CaptureNoteResponse,
   SearchNotesRequest,
   SearchNotesResponse,
 } from '../_shared/contracts.ts';
+import { ApiError } from '../_shared/errors.ts';
 import type {
   TelegramGateway,
   TelegramKnowledgeService,
   TelegramPractice,
+  TelegramPracticeEntryIntent,
+  TelegramPracticeEntrySource,
   TelegramRepository,
   TelegramSettings,
   VoiceTranscriber,
@@ -30,6 +37,21 @@ class Repository implements TelegramRepository {
   users = new Map<number, string>();
   practicesRows: TelegramPractice[] = [];
   mutations: Array<{ userId: string; action: string; noteId: string }> = [];
+  prompts: Array<{
+    userId: string;
+    chatId: number;
+    promptMessageId: number;
+    noteId: string;
+    intent: TelegramPracticeEntryIntent;
+  }> = [];
+  inspections: number[] = [];
+  replies: Array<{
+    promptMessageId: number;
+    text: string;
+    sourceChannel: TelegramPracticeEntrySource;
+  }> = [];
+  replyIntent: TelegramPracticeEntryIntent = 'reflection';
+  expiredPrompts = new Set<number>();
 
   async claimUpdate(updateId: number): Promise<boolean> {
     if (this.claimed.has(updateId)) return false;
@@ -54,6 +76,39 @@ class Repository implements TelegramRepository {
     noteId: string,
   ): Promise<void> {
     this.mutations.push({ userId, action, noteId });
+  }
+  async createReplyPrompt(
+    userId: string,
+    chatId: number,
+    promptMessageId: number,
+    noteId: string,
+    intent: TelegramPracticeEntryIntent,
+  ) {
+    this.prompts.push({ userId, chatId, promptMessageId, noteId, intent });
+  }
+  async inspectReplyPrompt(
+    _userId: string,
+    _chatId: number,
+    promptMessageId: number,
+  ) {
+    this.inspections.push(promptMessageId);
+    if (this.expiredPrompts.has(promptMessageId)) {
+      throw new ApiError(409, 'reply_expired', 'Synthetic expiry.');
+    }
+    return this.replyIntent;
+  }
+  async consumePracticeReply(
+    _userId: string,
+    _chatId: number,
+    promptMessageId: number,
+    text: string,
+    sourceChannel: TelegramPracticeEntrySource,
+  ) {
+    if (this.expiredPrompts.has(promptMessageId)) {
+      throw new ApiError(409, 'reply_expired', 'Synthetic expiry.');
+    }
+    this.replies.push({ promptMessageId, text, sourceChannel });
+    return this.replyIntent;
   }
 }
 
@@ -99,8 +154,14 @@ class Gateway implements TelegramGateway {
   answers: Array<{ id: string; text?: string }> = [];
   audio = new Uint8Array([7, 8, 9]);
   downloads = 0;
+  forceReplies: Array<{ chatId: number; text: string }> = [];
+  nextPromptMessageId = 9901;
   async sendMessage(chatId: number, text: string, options?: unknown) {
     this.messages.push({ chatId, text, options });
+  }
+  async sendForceReply(chatId: number, text: string): Promise<number> {
+    this.forceReplies.push({ chatId, text });
+    return this.nextPromptMessageId;
   }
   async answerCallbackQuery(id: string, text?: string) {
     this.answers.push({ id, ...(text ? { text } : {}) });
@@ -227,6 +288,9 @@ describe('Telegram Practice cutover', () => {
     };
     assert.equal(options.inlineKeyboard[0][0].callbackData, `p:r:${NOTE_ID}`);
     assert.ok(options.inlineKeyboard[0][0].callbackData.length <= 64);
+    assert.equal(options.inlineKeyboard[1][0].callbackData, `p:e:r:${NOTE_ID}`);
+    assert.equal(options.inlineKeyboard[1][1].callbackData, `p:e:s:${NOTE_ID}`);
+    assert.ok(options.inlineKeyboard[1][1].callbackData.length <= 64);
   });
 
   it('routes a Practice reread callback through the owner-scoped service mutation', async () => {
@@ -237,6 +301,142 @@ describe('Telegram Practice cutover', () => {
       { userId: USER_ID, action: 'reread', noteId: NOTE_ID },
     ]);
     assert.match(context.telegram.answers[0].text ?? '', /Reread recorded/u);
+  });
+
+  it('opens and stores a ForceReply prompt for Reflection or Story', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    await context.handler(request(callback(60, `p:e:s:${NOTE_ID}`)));
+    assert.match(context.telegram.forceReplies[0].text, /Story/u);
+    assert.deepEqual(context.repository.prompts, [
+      {
+        userId: USER_ID,
+        chatId: CHAT_ID,
+        promptMessageId: 9901,
+        noteId: NOTE_ID,
+        intent: 'story',
+      },
+    ]);
+    assert.match(
+      context.telegram.answers[0].text ?? '',
+      /Story prompt opened/u,
+    );
+  });
+
+  it('routes a text reply to the stored prompt instead of capture', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    context.repository.replyIntent = 'story';
+    await context.handler(
+      request(
+        update(61, {
+          text: 'A story from today.',
+          reply_to_message: { message_id: 9901 },
+        }),
+      ),
+    );
+    assert.deepEqual(context.repository.replies, [
+      {
+        promptMessageId: 9901,
+        text: 'A story from today.',
+        sourceChannel: 'telegram_text',
+      },
+    ]);
+    assert.equal(context.knowledge.captures.length, 0);
+    assert.match(context.telegram.messages[0].text, /Saved Story/u);
+  });
+
+  it('reports an expired text reply and never converts it into capture', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    context.repository.expiredPrompts.add(9902);
+    await context.handler(
+      request(
+        update(62, {
+          text: 'Too late.',
+          reply_to_message: { message_id: 9902 },
+        }),
+      ),
+    );
+    assert.equal(context.repository.replies.length, 0);
+    assert.equal(context.knowledge.captures.length, 0);
+    assert.match(context.telegram.messages[0].text, /expired/u);
+  });
+
+  it('validates a voice reply before transcription, consumes it, and clears audio', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    context.repository.replyIntent = 'reflection';
+    const raw = context.telegram.audio;
+    await context.handler(
+      request(
+        update(63, {
+          reply_to_message: { message_id: 9903 },
+          voice: { file_id: 'voice-reply', duration: 30, file_size: 3 },
+        }),
+      ),
+    );
+    assert.deepEqual(context.repository.inspections, [9903]);
+    assert.equal(context.transcriber.calls, 1);
+    assert.deepEqual(context.repository.replies, [
+      {
+        promptMessageId: 9903,
+        text: 'Transcribed voice note.',
+        sourceChannel: 'telegram_voice',
+      },
+    ]);
+    assert.equal(context.knowledge.captures.length, 0);
+    assert.deepEqual([...raw], [0, 0, 0]);
+  });
+
+  it('does not download or transcribe an expired voice reply', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    context.repository.expiredPrompts.add(9904);
+    await context.handler(
+      request(
+        update(64, {
+          reply_to_message: { message_id: 9904 },
+          voice: { file_id: 'expired-voice', duration: 30, file_size: 3 },
+        }),
+      ),
+    );
+    assert.deepEqual(context.repository.inspections, [9904]);
+    assert.equal(context.telegram.downloads, 0);
+    assert.equal(context.transcriber.calls, 0);
+    assert.equal(context.knowledge.captures.length, 0);
+    assert.match(context.telegram.messages[0].text, /expired/u);
+  });
+
+  it('rejects over-duration and over-size voice replies before download', async () => {
+    for (const voice of [
+      {
+        file_id: 'long-voice',
+        duration: MAX_TELEGRAM_VOICE_DURATION_SECONDS + 1,
+        file_size: 3,
+      },
+      {
+        file_id: 'large-voice',
+        duration: 30,
+        file_size: MAX_TELEGRAM_VOICE_BYTES + 1,
+      },
+    ]) {
+      const context = dependencies();
+      context.repository.users.set(CHAT_ID, USER_ID);
+      await context.handler(
+        request(
+          update(65 + context.telegram.messages.length, {
+            reply_to_message: { message_id: 9905 },
+            voice,
+          }),
+        ),
+      );
+      assert.deepEqual(context.repository.inspections, [9905]);
+      assert.equal(context.telegram.downloads, 0);
+      assert.equal(context.transcriber.calls, 0);
+      assert.equal(context.repository.replies.length, 0);
+      assert.match(context.telegram.messages[0].text, /two minutes/u);
+    }
   });
 
   it('reports timezone and Practice time only', async () => {

@@ -9,6 +9,7 @@ import {
 import {
   MAX_JSON_REQUEST_BYTES,
   MAX_NOTE_TEXT_LENGTH,
+  MAX_TELEGRAM_VOICE_BYTES,
 } from '../../../packages/shared/src/constants/index.ts';
 import { captureNoteRequestSchema } from '../../../packages/shared/src/contracts/index.ts';
 import { handleAccountDeletion } from '../_shared/account-deletion-handler.ts';
@@ -261,6 +262,70 @@ describe('Phase 7 provider resilience', () => {
       async () => undefined,
     );
     await client.sendMessage(1, 'synthetic');
+    assert.equal(calls, 2);
+  });
+
+  it('returns the bot message ID from a ForceReply prompt', async () => {
+    let body: Record<string, unknown> | null = null;
+    const client = new TelegramApiClient(
+      'synthetic-token',
+      async (_url, init) => {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return Response.json({ ok: true, result: { message_id: 12345 } });
+      },
+    );
+    assert.equal(await client.sendForceReply(1, 'Reply here.'), 12345);
+    assert.deepEqual(body?.reply_markup, {
+      force_reply: true,
+      selective: true,
+    });
+  });
+
+  it('rejects Telegram voice files whose reported size exceeds 10 MiB', async () => {
+    let calls = 0;
+    const client = new TelegramApiClient('synthetic-token', async () => {
+      calls += 1;
+      return Response.json({
+        ok: true,
+        result: {
+          file_path: 'voice/file.ogg',
+          file_size: MAX_TELEGRAM_VOICE_BYTES + 1,
+        },
+      });
+    });
+    await assert.rejects(
+      () => client.downloadVoice('voice', MAX_TELEGRAM_VOICE_BYTES),
+      (error: unknown) =>
+        error instanceof ApiError && error.code === 'payload_too_large',
+    );
+    assert.equal(calls, 1);
+  });
+
+  it('stops a Telegram voice stream as soon as its byte limit is exceeded', async () => {
+    let calls = 0;
+    const client = new TelegramApiClient('synthetic-token', async () => {
+      calls += 1;
+      if (calls === 1) {
+        return Response.json({
+          ok: true,
+          result: { file_path: 'voice/file.ogg' },
+        });
+      }
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array([1, 2]));
+            controller.enqueue(new Uint8Array([3, 4]));
+            controller.close();
+          },
+        }),
+      );
+    });
+    await assert.rejects(
+      () => client.downloadVoice('voice', 3),
+      (error: unknown) =>
+        error instanceof ApiError && error.code === 'payload_too_large',
+    );
     assert.equal(calls, 2);
   });
 

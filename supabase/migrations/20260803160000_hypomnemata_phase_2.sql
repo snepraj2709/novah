@@ -20,7 +20,7 @@ from public, anon, authenticated, service_role;
 
 -- Application callers can append through RPCs and read their thread. They
 -- cannot update or delete individual entries; parent cascades remain intact.
-revoke update, delete, truncate on table public.practice_entries
+revoke insert, update, delete, truncate on table public.practice_entries
 from service_role;
 revoke all on table public.telegram_reply_prompts from service_role;
 

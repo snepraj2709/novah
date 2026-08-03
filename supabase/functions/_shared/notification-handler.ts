@@ -161,6 +161,16 @@ export async function processNotifications(
                   callbackData: practiceCallbackData(practice.noteId),
                 },
               ],
+              [
+                {
+                  text: 'Reflect',
+                  callbackData: `p:e:r:${practice.noteId}`,
+                },
+                {
+                  text: 'Add story',
+                  callbackData: `p:e:s:${practice.noteId}`,
+                },
+              ],
             ],
           },
         );

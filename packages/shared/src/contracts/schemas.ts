@@ -204,19 +204,20 @@ export const practiceStateSchema = z
   })
   .strict();
 
+export const practiceEntrySchema = z
+  .object({
+    id: z.string().uuid(),
+    kind: practiceEntryKindSchema,
+    text: z.string().min(1).max(MAX_PRACTICE_ENTRY_TEXT_LENGTH),
+    sourceChannel: practiceSourceChannelSchema,
+    createdAt: z.iso.datetime({ offset: true }),
+  })
+  .strict();
+
 export const managePracticeResponseSchema = z
   .object({
     practice: practiceStateSchema,
-    entry: z
-      .object({
-        id: z.string().uuid(),
-        kind: practiceEntryKindSchema,
-        text: z.string().min(1).max(MAX_PRACTICE_ENTRY_TEXT_LENGTH),
-        sourceChannel: practiceSourceChannelSchema,
-        createdAt: z.iso.datetime({ offset: true }),
-      })
-      .strict()
-      .optional(),
+    entry: practiceEntrySchema.optional(),
   })
   .strict();
 
@@ -268,4 +269,5 @@ export type ManagePracticeResponse = z.infer<
   typeof managePracticeResponseSchema
 >;
 export type PracticeState = z.infer<typeof practiceStateSchema>;
+export type PracticeEntry = z.infer<typeof practiceEntrySchema>;
 export type DailyDigest = z.infer<typeof dailyDigestSchema>;

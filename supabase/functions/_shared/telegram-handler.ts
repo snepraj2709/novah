@@ -16,6 +16,7 @@ import type {
   TelegramMessage,
   TelegramMessageOptions,
   TelegramPractice,
+  TelegramPracticeEntryIntent,
   TelegramRepository,
   TelegramSettings,
   VoiceTranscriber,
@@ -25,8 +26,10 @@ const LINK_CODE_PATTERN = new RegExp(
   `^[A-HJ-NP-Z2-9]{${TELEGRAM_LINK_CODE_LENGTH}}$`,
   'u',
 );
-const PRACTICE_CALLBACK_PATTERN =
+const PRACTICE_REREAD_CALLBACK_PATTERN =
   /^p:r:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
+const PRACTICE_ENTRY_CALLBACK_PATTERN =
+  /^p:e:([rs]):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
 const TELEGRAM_NOTE_PREVIEW_LENGTH = 240;
 
 export interface TelegramWebhookDependencies {
@@ -192,18 +195,44 @@ async function dispatchCallback(
 ): Promise<void> {
   if (callback.chatType !== 'private' || callback.chatId <= 0) return;
   const userId = await dependencies.repository.userIdForChat(callback.chatId);
-  const noteId = callback.data.match(PRACTICE_CALLBACK_PATTERN)?.[1];
-  if (!userId || !noteId) {
+  const reread = callback.data.match(PRACTICE_REREAD_CALLBACK_PATTERN);
+  const entry = callback.data.match(PRACTICE_ENTRY_CALLBACK_PATTERN);
+  if (!userId || (!reread && !entry)) {
     await dependencies.telegram.answerCallbackQuery(
       callback.id,
       'This Practice action is unavailable.',
     );
     return;
   }
-  await dependencies.repository.managePractice(userId, 'reread', noteId);
+  if (reread) {
+    await dependencies.repository.managePractice(userId, 'reread', reread[1]);
+    await dependencies.telegram.answerCallbackQuery(
+      callback.id,
+      'Reread recorded.',
+    );
+    return;
+  }
+
+  const intent: TelegramPracticeEntryIntent =
+    entry![1].toLowerCase() === 'r' ? 'reflection' : 'story';
+  const promptMessageId = await dependencies.telegram.sendForceReply(
+    callback.chatId,
+    intent === 'reflection'
+      ? 'Reply with your Reflection. Send text or a voice note.'
+      : 'Reply with your Story. Send text or a voice note.',
+  );
+  await dependencies.repository.createReplyPrompt(
+    userId,
+    callback.chatId,
+    promptMessageId,
+    entry![2],
+    intent,
+  );
   await dependencies.telegram.answerCallbackQuery(
     callback.id,
-    'Reread recorded.',
+    intent === 'reflection'
+      ? 'Reflection prompt opened.'
+      : 'Story prompt opened.',
   );
 }
 
@@ -271,21 +300,7 @@ async function captureVoice(
     );
     return;
   }
-  let audio: Uint8Array | null = null;
-  let transcription: string;
-  try {
-    audio = await dependencies.telegram.downloadVoice(
-      voice.fileId,
-      MAX_TELEGRAM_VOICE_BYTES,
-    );
-    transcription = await dependencies.transcriber.transcribe(
-      audio,
-      'audio/ogg',
-    );
-  } finally {
-    audio?.fill(0);
-    audio = null;
-  }
+  const transcription = await transcribeVoice(message, dependencies);
   const result = await dependencies.knowledge.capture(userId, {
     originalText: transcription,
     sourceTitle: 'Telegram voice note',
@@ -296,6 +311,93 @@ async function captureVoice(
     dependencies.telegram,
     message.chatId,
     `Saved voice note as ${result.note.noteType}.`,
+  );
+}
+
+function voiceExceedsLimits(message: TelegramMessage): boolean {
+  const voice = message.voice!;
+  return (
+    voice.duration > MAX_TELEGRAM_VOICE_DURATION_SECONDS ||
+    (voice.fileSize !== undefined && voice.fileSize > MAX_TELEGRAM_VOICE_BYTES)
+  );
+}
+
+async function transcribeVoice(
+  message: TelegramMessage,
+  dependencies: TelegramWebhookDependencies,
+): Promise<string> {
+  const voice = message.voice!;
+  let audio: Uint8Array | null = null;
+  try {
+    audio = await dependencies.telegram.downloadVoice(
+      voice.fileId,
+      MAX_TELEGRAM_VOICE_BYTES,
+    );
+    return await dependencies.transcriber.transcribe(
+      audio,
+      voice.mimeType ?? 'audio/ogg',
+    );
+  } finally {
+    audio?.fill(0);
+    audio = null;
+  }
+}
+
+function isExpiredReply(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'reply_expired';
+}
+
+async function practiceReply(
+  userId: string,
+  message: TelegramMessage,
+  dependencies: TelegramWebhookDependencies,
+): Promise<void> {
+  const promptMessageId = message.replyToMessageId!;
+  let intent: TelegramPracticeEntryIntent;
+  let text: string;
+  let sourceChannel: 'telegram_text' | 'telegram_voice';
+  try {
+    if (message.voice) {
+      intent = await dependencies.repository.inspectReplyPrompt(
+        userId,
+        message.chatId,
+        promptMessageId,
+      );
+      if (voiceExceedsLimits(message)) {
+        await send(
+          dependencies.telegram,
+          message.chatId,
+          'Voice notes must be two minutes or less.',
+        );
+        return;
+      }
+      text = await transcribeVoice(message, dependencies);
+      sourceChannel = 'telegram_voice';
+    } else {
+      text = message.text ?? '';
+      sourceChannel = 'telegram_text';
+      intent = 'reflection';
+    }
+    intent = await dependencies.repository.consumePracticeReply(
+      userId,
+      message.chatId,
+      promptMessageId,
+      text,
+      sourceChannel,
+    );
+  } catch (error) {
+    if (!isExpiredReply(error)) throw error;
+    await send(
+      dependencies.telegram,
+      message.chatId,
+      'That Practice reply has expired. Open a new Reflection or Story prompt.',
+    );
+    return;
+  }
+  await send(
+    dependencies.telegram,
+    message.chatId,
+    intent === 'reflection' ? 'Saved Reflection.' : 'Saved Story.',
   );
 }
 
@@ -324,6 +426,13 @@ async function dispatchMessage(
   }
   if (!linkedUserId) {
     await send(dependencies.telegram, message.chatId, linkInstructions());
+    return;
+  }
+  if (
+    message.replyToMessageId !== undefined &&
+    (Boolean(message.voice) || Boolean(message.text?.trim()))
+  ) {
+    await practiceReply(linkedUserId, message, dependencies);
     return;
   }
   if (command?.name === 'help') {
@@ -359,6 +468,10 @@ async function dispatchMessage(
         {
           inlineKeyboard: [
             [{ text: 'Reread', callbackData: `p:r:${practice.noteId}` }],
+            [
+              { text: 'Reflect', callbackData: `p:e:r:${practice.noteId}` },
+              { text: 'Add story', callbackData: `p:e:s:${practice.noteId}` },
+            ],
           ],
         },
       );

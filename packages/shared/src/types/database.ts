@@ -13,6 +13,14 @@ type GeneratedCaptureNoteAtomicForUser =
   GeneratedPublicSchema['Functions']['capture_note_atomic_for_user'];
 type GeneratedClaimDuePractices =
   GeneratedPublicSchema['Functions']['claim_due_practices'];
+type GeneratedAddPracticeEntry =
+  GeneratedPublicSchema['Functions']['add_practice_entry'];
+type GeneratedAddPracticeEntryCore =
+  GeneratedPublicSchema['Functions']['add_practice_entry_core'];
+type GeneratedAddPracticeEntryForUser =
+  GeneratedPublicSchema['Functions']['add_practice_entry_for_user'];
+type GeneratedConsumeTelegramPracticeReply =
+  GeneratedPublicSchema['Functions']['consume_telegram_practice_reply'];
 type GeneratedManagePractice =
   GeneratedPublicSchema['Functions']['manage_practice'];
 type GeneratedManagePracticeCore =
@@ -100,12 +108,26 @@ type CorrectedPracticeReturns<
   }
 >;
 
+type CorrectedPracticeEntryReturns<
+  Returns extends Array<{
+    integrated_at: string;
+    last_practised_at: string;
+    next_check_in_on: string;
+    next_due_on: string;
+    paused_until: string;
+  }>,
+> = CorrectedPracticeReturns<Returns>;
+
 type CorrectedFunctions = Omit<
   GeneratedPublicSchema['Functions'],
+  | 'add_practice_entry'
+  | 'add_practice_entry_core'
+  | 'add_practice_entry_for_user'
   | 'capture_note_atomic'
   | 'capture_note_atomic_for_user'
   | 'claim_due_practices'
   | 'claim_due_reviews'
+  | 'consume_telegram_practice_reply'
   | 'manage_practice'
   | 'manage_practice_core'
   | 'manage_practice_for_user'
@@ -114,6 +136,24 @@ type CorrectedFunctions = Omit<
   | 'notification_digest_notes'
   | 'reveal_review_for_user'
 > & {
+  add_practice_entry: Omit<GeneratedAddPracticeEntry, 'Returns'> & {
+    Returns: CorrectedPracticeEntryReturns<
+      GeneratedAddPracticeEntry['Returns']
+    >;
+  };
+  add_practice_entry_core: Omit<GeneratedAddPracticeEntryCore, 'Returns'> & {
+    Returns: CorrectedPracticeEntryReturns<
+      GeneratedAddPracticeEntryCore['Returns']
+    >;
+  };
+  add_practice_entry_for_user: Omit<
+    GeneratedAddPracticeEntryForUser,
+    'Returns'
+  > & {
+    Returns: CorrectedPracticeEntryReturns<
+      GeneratedAddPracticeEntryForUser['Returns']
+    >;
+  };
   capture_note_atomic: Omit<GeneratedCaptureNoteAtomic, 'Args' | 'Returns'> & {
     Args: CorrectedCaptureArgs<GeneratedCaptureNoteAtomic['Args']>;
     Returns: CorrectedCaptureReturns<GeneratedCaptureNoteAtomic['Returns']>;
@@ -143,6 +183,14 @@ type CorrectedFunctions = Omit<
         recall_prompt: string | null;
         source_title: string | null;
       }
+    >;
+  };
+  consume_telegram_practice_reply: Omit<
+    GeneratedConsumeTelegramPracticeReply,
+    'Returns'
+  > & {
+    Returns: CorrectedPracticeEntryReturns<
+      GeneratedConsumeTelegramPracticeReply['Returns']
     >;
   };
   match_notes: Omit<GeneratedMatchNotes, 'Returns'> & {

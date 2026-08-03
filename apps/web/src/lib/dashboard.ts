@@ -1,6 +1,7 @@
 import {
   dailyDigestSchema,
   type DailyDigest,
+  type PracticeEntry,
   type SearchMatch,
 } from '@novah/shared/contracts';
 import { reviewCue } from '@novah/shared';
@@ -36,6 +37,8 @@ export interface DashboardPractice {
   nextCheckInOn: string | null;
   lastPractisedAt: string | null;
 }
+
+export type DashboardPracticeEntry = PracticeEntry;
 
 export interface ProfileSettings {
   userId: string;
@@ -285,6 +288,25 @@ export async function loadPracticeMap(
   return new Map(
     (data ?? []).map((row) => [row.note_id, dashboardPractice(row)]),
   );
+}
+
+export async function loadPracticeEntries(
+  noteId: string,
+): Promise<DashboardPracticeEntry[]> {
+  const { data, error } = await supabase
+    .from('practice_entries')
+    .select('id, kind, text, source_channel, created_at')
+    .eq('note_id', noteId)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) throw new Error('Practice entries could not be loaded.');
+  return (data ?? []).map((entry) => ({
+    id: entry.id,
+    kind: entry.kind,
+    text: entry.text,
+    sourceChannel: entry.source_channel,
+    createdAt: entry.created_at,
+  }));
 }
 
 export async function loadPracticePage(

@@ -2,11 +2,22 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
+  type FormEvent,
   type KeyboardEvent,
   type MouseEvent,
 } from 'react';
+import { MAX_PRACTICE_ENTRY_TEXT_LENGTH } from '@novah/shared';
 
-import type { DashboardNote } from '../lib/dashboard.ts';
+import { managePractice } from '../lib/api.ts';
+import {
+  loadPracticeEntries,
+  type DashboardNote,
+  type DashboardPractice,
+  type DashboardPracticeEntry,
+} from '../lib/dashboard.ts';
+import { errorMessage } from '../lib/errors.ts';
+import { practicePrompt } from '../lib/practice.ts';
 import { formatDateTime } from '../lib/time.ts';
 
 function noteTypeLabel(value: string): string {
@@ -26,9 +37,11 @@ const CAPTURE_CHANNEL_LABELS: Record<
 export function NoteDetailDrawer({
   note,
   onClose,
+  onPracticeUpdated,
 }: {
   note: DashboardNote;
   onClose: () => void;
+  onPracticeUpdated?: (practice: DashboardPractice) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -36,6 +49,12 @@ export function NoteDetailDrawer({
   const hasPersonalContext = Boolean(note.personalContext?.trim());
   const sourceTitle = note.sourceTitle?.trim() || null;
   const sourceUrl = note.sourceUrl?.trim() || null;
+  const [entries, setEntries] = useState<DashboardPracticeEntry[] | null>(null);
+  const [reflection, setReflection] = useState('');
+  const [story, setStory] = useState('');
+  const [promptVisible, setPromptVisible] = useState(false);
+  const [saving, setSaving] = useState<'reflection' | 'story' | null>(null);
+  const [entryError, setEntryError] = useState<string | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -58,6 +77,27 @@ export function NoteDetailDrawer({
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setEntries(null);
+    setEntryError(null);
+    void loadPracticeEntries(note.id)
+      .then((loaded) => {
+        if (active) setEntries(loaded);
+      })
+      .catch((cause) => {
+        if (active) {
+          setEntryError(
+            errorMessage(cause, 'Practice thread could not be loaded.'),
+          );
+          setEntries([]);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [note.id]);
+
   function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
     if (event.target !== event.currentTarget) return;
 
@@ -76,7 +116,9 @@ export function NoteDetailDrawer({
 
     const dialog = event.currentTarget;
     const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled])',
+      ),
     );
     const first = focusable[0];
     const last = focusable.at(-1);
@@ -97,6 +139,40 @@ export function NoteDetailDrawer({
     } else if (!event.shiftKey && active === last) {
       event.preventDefault();
       first.focus();
+    }
+  }
+
+  async function addEntry(
+    event: FormEvent<HTMLFormElement>,
+    entryKind: 'reflection' | 'story',
+  ) {
+    event.preventDefault();
+    const text = entryKind === 'reflection' ? reflection : story;
+    if (!text.trim() || saving) return;
+    setSaving(entryKind);
+    setEntryError(null);
+    try {
+      const result = await managePractice({
+        action: 'addEntry',
+        noteId: note.id,
+        entryKind,
+        text,
+      });
+      if (!result.entry) throw new Error('Practice entry is missing.');
+      setEntries((current) =>
+        [...(current ?? []), result.entry!].sort(
+          (left, right) =>
+            left.createdAt.localeCompare(right.createdAt) ||
+            left.id.localeCompare(right.id),
+        ),
+      );
+      if (entryKind === 'reflection') setReflection('');
+      else setStory('');
+      onPracticeUpdated?.(result.practice);
+    } catch (cause) {
+      setEntryError(errorMessage(cause, 'Practice entry could not be saved.'));
+    } finally {
+      setSaving(null);
     }
   }
 
@@ -167,6 +243,100 @@ export function NoteDetailDrawer({
             </h3>
             <p className="note-detail-original">{note.originalText}</p>
           </section>
+
+          {note.practice && (
+            <section
+              className="practice-writing"
+              aria-labelledby={`${titleId}-writing`}
+            >
+              <h3 id={`${titleId}-writing`}>Reflection and Story</h3>
+              <p>Writing is optional. Entries are saved to this thread.</p>
+
+              <div className="practice-prompt">
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={() => setPromptVisible(true)}
+                >
+                  Give me a prompt
+                </button>
+                {promptVisible && entries !== null && (
+                  <p role="status">{practicePrompt(note.id, entries.length)}</p>
+                )}
+              </div>
+
+              <div className="practice-entry-forms">
+                <form onSubmit={(event) => void addEntry(event, 'reflection')}>
+                  <label htmlFor={`${titleId}-reflection`}>Reflection</label>
+                  <textarea
+                    id={`${titleId}-reflection`}
+                    value={reflection}
+                    maxLength={MAX_PRACTICE_ENTRY_TEXT_LENGTH}
+                    rows={4}
+                    onChange={(event) => setReflection(event.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className="button primary"
+                    disabled={!reflection.trim() || saving !== null}
+                  >
+                    {saving === 'reflection' ? 'Saving…' : 'Add Reflection'}
+                  </button>
+                </form>
+
+                <form onSubmit={(event) => void addEntry(event, 'story')}>
+                  <label htmlFor={`${titleId}-story`}>Story</label>
+                  <textarea
+                    id={`${titleId}-story`}
+                    value={story}
+                    maxLength={MAX_PRACTICE_ENTRY_TEXT_LENGTH}
+                    rows={4}
+                    onChange={(event) => setStory(event.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className="button primary"
+                    disabled={!story.trim() || saving !== null}
+                  >
+                    {saving === 'story' ? 'Saving…' : 'Add Story'}
+                  </button>
+                </form>
+              </div>
+
+              {entryError && (
+                <p className="message error" role="alert">
+                  {entryError}
+                </p>
+              )}
+
+              <div className="practice-thread" aria-live="polite">
+                <h4>Practice thread</h4>
+                {entries === null ? (
+                  <p>Loading entries…</p>
+                ) : entries.length === 0 ? (
+                  <p>No Reflection or Story entries yet.</p>
+                ) : (
+                  <ol>
+                    {entries.map((entry) => (
+                      <li key={entry.id}>
+                        <div>
+                          <strong>
+                            {entry.kind === 'reflection'
+                              ? 'Reflection'
+                              : 'Story'}
+                          </strong>
+                          <time dateTime={entry.createdAt}>
+                            {formatDateTime(entry.createdAt)}
+                          </time>
+                        </div>
+                        <p>{entry.text}</p>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </section>
+          )}
 
           {hasPersonalContext && (
             <section

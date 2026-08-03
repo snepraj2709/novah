@@ -748,6 +748,102 @@ select {
   font-weight: 700;
   text-underline-offset: 0.2em;
 }
+.practice-writing {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+.practice-writing > p,
+.practice-prompt p,
+.practice-thread p {
+  margin-bottom: 0;
+}
+.practice-prompt {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+}
+.practice-prompt p {
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--gold);
+  background: #fbf7e9;
+  color: var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+}
+.practice-entry-forms {
+  display: grid;
+  gap: 1rem;
+}
+.practice-entry-forms form {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: #fff;
+}
+.practice-entry-forms label {
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+.practice-entry-forms textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #bdc7be;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+}
+.practice-entry-forms textarea:focus-visible {
+  outline: 3px solid rgba(32, 91, 72, 0.25);
+  outline-offset: 2px;
+}
+.practice-entry-forms .button {
+  justify-self: start;
+}
+.practice-thread {
+  display: grid;
+  gap: 0.8rem;
+}
+.practice-thread h4 {
+  margin: 0;
+  color: var(--ink);
+}
+.practice-thread ol {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.practice-thread li {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: #fff;
+}
+.practice-thread li > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.55rem;
+}
+.practice-thread time {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.practice-thread li p {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 
 .auth-layout {
   display: grid;

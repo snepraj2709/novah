@@ -14,7 +14,7 @@ import type {
   PracticeRepository,
   SupportedPracticeAction,
 } from './practice-types.ts';
-import type { PracticeState } from './contracts.ts';
+import type { PracticeEntry, PracticeState } from './contracts.ts';
 
 export class SupabaseRequestContext
   implements Authenticator, NoteRepository, PracticeRepository
@@ -185,6 +185,69 @@ export class SupabaseRequestContext
       checkInsEnabled: row.check_ins_enabled,
       nextCheckInOn: row.next_check_in_on,
       lastPractisedAt: row.last_practised_at,
+    };
+  }
+
+  async addEntry(
+    noteId: string,
+    entryKind: PracticeEntry['kind'],
+    text: string,
+  ): Promise<{ practice: PracticeState; entry: PracticeEntry }> {
+    const client = this.authenticatedClient();
+    const { data, error } = await client.rpc('add_practice_entry', {
+      input_note_id: noteId,
+      input_kind: entryKind,
+      input_text: text,
+    });
+    if (error) {
+      const code = error.message.match(
+        /(practice_not_found|invalid_transition|entry_too_long)/u,
+      )?.[1];
+      if (code === 'practice_not_found') {
+        throw new ApiError(404, code, 'The note or Practice was not found.');
+      }
+      if (code === 'invalid_transition') {
+        throw new ApiError(409, code, 'That Practice entry is invalid.');
+      }
+      if (code === 'entry_too_long') {
+        throw new ApiError(413, code, 'That Practice entry is too long.');
+      }
+      throw new ApiError(
+        500,
+        'internal_error',
+        'Practice entry could not be saved.',
+        true,
+      );
+    }
+    const row = data?.[0];
+    if (!row) {
+      throw new ApiError(
+        500,
+        'internal_error',
+        'Practice entry state is missing.',
+        true,
+      );
+    }
+    return {
+      practice: {
+        noteId: row.note_id,
+        status: row.status,
+        intervalDays: row.interval_days,
+        nextDueOn: row.next_due_on,
+        pausedUntil: row.paused_until,
+        readyToResume: row.ready_to_resume,
+        integratedAt: row.integrated_at,
+        checkInsEnabled: row.check_ins_enabled,
+        nextCheckInOn: row.next_check_in_on,
+        lastPractisedAt: row.last_practised_at,
+      },
+      entry: {
+        id: row.entry_id,
+        kind: row.entry_kind,
+        text: row.entry_text,
+        sourceChannel: row.entry_source_channel,
+        createdAt: row.entry_created_at,
+      },
     };
   }
 

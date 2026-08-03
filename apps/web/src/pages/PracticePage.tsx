@@ -122,6 +122,12 @@ export function PracticePage({ userId }: { userId: string }) {
         <NoteDetailDrawer
           note={detailNote}
           onClose={() => setDetailNote(null)}
+          onPracticeUpdated={(practice) => {
+            setDetailNote((current) =>
+              current ? { ...current, practice } : current,
+            );
+            void load();
+          }}
         />
       )}
     </div>

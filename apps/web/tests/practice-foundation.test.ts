@@ -53,14 +53,13 @@ describe('web Practice foundation', () => {
     }
   });
 
-  it('keeps Reflection, Story, prompts, and entry content out of Practice cards', async () => {
+  it('keeps prompt inputs and entry content out of Practice cards', async () => {
     const card = await readFile(
       new URL('../src/components/NoteCard.tsx', import.meta.url),
       'utf8',
     );
-    assert.doesNotMatch(
-      card,
-      /Give me a prompt|Reflection|Add story|entry thread/u,
-    );
+    assert.match(card, /\bReflect\b/u);
+    assert.match(card, /\bAdd story\b/u);
+    assert.doesNotMatch(card, /Give me a prompt|textarea|Practice thread/u);
   });
 });

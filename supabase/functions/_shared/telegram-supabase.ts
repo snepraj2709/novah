@@ -9,12 +9,24 @@ import type {
 } from './types.ts';
 import type {
   TelegramPractice,
+  TelegramPracticeEntryIntent,
+  TelegramPracticeEntrySource,
   TelegramRepository,
   TelegramSettings,
 } from './telegram-types.ts';
 
 function databaseFailure(message: string): ApiError {
   return new ApiError(500, 'internal_error', message, true);
+}
+
+function replyFailure(error: { message: string } | null): ApiError {
+  return error?.message.includes('reply_expired')
+    ? new ApiError(
+        409,
+        'reply_expired',
+        'That Practice reply prompt has expired.',
+      )
+    : databaseFailure('Practice reply could not be processed.');
 }
 
 export class SupabaseTelegramRepository implements TelegramRepository {
@@ -131,6 +143,67 @@ export class SupabaseTelegramRepository implements TelegramRepository {
       input_note_id: noteId,
     });
     if (error) throw databaseFailure('Practice could not be updated.');
+  }
+
+  async createReplyPrompt(
+    userId: string,
+    chatId: number,
+    promptMessageId: number,
+    noteId: string,
+    intent: TelegramPracticeEntryIntent,
+  ): Promise<void> {
+    const { error } = await this.client.rpc('create_telegram_reply_prompt', {
+      input_user_id: userId,
+      input_chat_id: chatId,
+      input_prompt_message_id: promptMessageId,
+      input_note_id: noteId,
+      input_intent: intent,
+    });
+    if (error)
+      throw databaseFailure('Practice reply prompt could not be saved.');
+  }
+
+  async inspectReplyPrompt(
+    userId: string,
+    chatId: number,
+    promptMessageId: number,
+  ): Promise<TelegramPracticeEntryIntent> {
+    const { data, error } = await this.client.rpc(
+      'inspect_telegram_reply_prompt',
+      {
+        input_user_id: userId,
+        input_chat_id: chatId,
+        input_prompt_message_id: promptMessageId,
+      },
+    );
+    if (error) throw replyFailure(error);
+    if (data !== 'reflection' && data !== 'story') {
+      throw databaseFailure('Practice reply prompt is invalid.');
+    }
+    return data;
+  }
+
+  async consumePracticeReply(
+    userId: string,
+    chatId: number,
+    promptMessageId: number,
+    text: string,
+    sourceChannel: TelegramPracticeEntrySource,
+  ): Promise<TelegramPracticeEntryIntent> {
+    const { data, error } = await this.client.rpc(
+      'consume_telegram_practice_reply',
+      {
+        input_user_id: userId,
+        input_chat_id: chatId,
+        input_prompt_message_id: promptMessageId,
+        input_text: text,
+        input_source_channel: sourceChannel,
+      },
+    );
+    const row = data?.[0];
+    if (error) throw replyFailure(error);
+    if (!row) throw databaseFailure('Practice reply result is missing.');
+    return row.entry_kind;
   }
 }
 

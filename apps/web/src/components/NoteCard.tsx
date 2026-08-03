@@ -82,6 +82,24 @@ export function NoteCard({
             Reread
           </button>
         )}
+        {note.practice && (
+          <div className="button-row note-card-writing-actions">
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => onOpen(note)}
+            >
+              Reflect
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => onOpen(note)}
+            >
+              Add story
+            </button>
+          </div>
+        )}
         {onDelete && (
           <button
             type="button"

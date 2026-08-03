@@ -473,6 +473,83 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      add_practice_entry: {
+        Args: {
+          input_kind: Database['public']['Enums']['practice_entry_kind'];
+          input_note_id: string;
+          input_text: string;
+        };
+        Returns: {
+          check_ins_enabled: boolean;
+          entry_created_at: string;
+          entry_id: string;
+          entry_kind: Database['public']['Enums']['practice_entry_kind'];
+          entry_source_channel: Database['public']['Enums']['practice_source_channel'];
+          entry_text: string;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
+      };
+      add_practice_entry_core: {
+        Args: {
+          input_kind: Database['public']['Enums']['practice_entry_kind'];
+          input_note_id: string;
+          input_now?: string;
+          input_source_channel: Database['public']['Enums']['practice_source_channel'];
+          input_text: string;
+          input_user_id: string;
+        };
+        Returns: {
+          check_ins_enabled: boolean;
+          entry_created_at: string;
+          entry_id: string;
+          entry_kind: Database['public']['Enums']['practice_entry_kind'];
+          entry_source_channel: Database['public']['Enums']['practice_source_channel'];
+          entry_text: string;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
+      };
+      add_practice_entry_for_user: {
+        Args: {
+          input_kind: Database['public']['Enums']['practice_entry_kind'];
+          input_note_id: string;
+          input_source_channel: Database['public']['Enums']['practice_source_channel'];
+          input_text: string;
+          input_user_id: string;
+        };
+        Returns: {
+          check_ins_enabled: boolean;
+          entry_created_at: string;
+          entry_id: string;
+          entry_kind: Database['public']['Enums']['practice_entry_kind'];
+          entry_source_channel: Database['public']['Enums']['practice_source_channel'];
+          entry_text: string;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
+      };
       are_normalized_tags: { Args: { input_tags: string[] }; Returns: boolean };
       capture_note_atomic: {
         Args: {
@@ -565,12 +642,59 @@ export type Database = {
         Args: { input_chat_id: number; input_code_hash: string };
         Returns: string;
       };
+      consume_telegram_practice_reply: {
+        Args: {
+          input_chat_id: number;
+          input_now?: string;
+          input_prompt_message_id: number;
+          input_source_channel: Database['public']['Enums']['practice_source_channel'];
+          input_text: string;
+          input_user_id: string;
+        };
+        Returns: {
+          check_ins_enabled: boolean;
+          entry_created_at: string;
+          entry_id: string;
+          entry_kind: Database['public']['Enums']['practice_entry_kind'];
+          entry_source_channel: Database['public']['Enums']['practice_source_channel'];
+          entry_text: string;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
+      };
       create_telegram_link_code: {
         Args: { input_code_hash: string };
         Returns: {
           connected: boolean;
           expires_at: string;
         }[];
+      };
+      create_telegram_reply_prompt: {
+        Args: {
+          input_chat_id: number;
+          input_intent: Database['public']['Enums']['telegram_reply_intent'];
+          input_note_id: string;
+          input_now?: string;
+          input_prompt_message_id: number;
+          input_user_id: string;
+        };
+        Returns: string;
+      };
+      inspect_telegram_reply_prompt: {
+        Args: {
+          input_chat_id: number;
+          input_now?: string;
+          input_prompt_message_id: number;
+          input_user_id: string;
+        };
+        Returns: Database['public']['Enums']['telegram_reply_intent'];
       };
       is_http_url: { Args: { input_url: string }; Returns: boolean };
       is_valid_timezone: { Args: { timezone_name: string }; Returns: boolean };

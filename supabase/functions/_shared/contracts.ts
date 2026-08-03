@@ -17,6 +17,7 @@ export {
   type DeleteAccountResponse,
   type ManagePracticeRequest,
   type ManagePracticeResponse,
+  type PracticeEntry,
   type PracticeState,
   type SearchMatch,
   type SearchNotesRequest,
