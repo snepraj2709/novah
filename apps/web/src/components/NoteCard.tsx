@@ -1,6 +1,9 @@
 import type { DashboardNote } from '../lib/dashboard.ts';
 import { formatDateTime } from '../lib/time.ts';
 
+export type PracticeCardAction =
+  'pause' | 'resume' | 'integrate' | 'confirmIntegrated' | 'stopCheckIns';
+
 function noteTypeLabel(value: string): string {
   return value.replaceAll('_', ' ');
 }
@@ -11,12 +14,16 @@ export function NoteCard({
   onDelete,
   onActivate,
   onReread,
+  onPracticeAction,
+  checkInWaiting = false,
 }: {
   note: DashboardNote;
   onOpen: (note: DashboardNote) => void;
   onDelete?: (note: DashboardNote) => void;
   onActivate?: (note: DashboardNote) => void;
   onReread?: (note: DashboardNote) => void;
+  onPracticeAction?: (note: DashboardNote, action: PracticeCardAction) => void;
+  checkInWaiting?: boolean;
 }) {
   const typeLabel = noteTypeLabel(note.noteType);
   const accessibleTypeLabel = typeLabel.endsWith('note')
@@ -81,6 +88,78 @@ export function NoteCard({
           >
             Reread
           </button>
+        )}
+        {note.practice?.status === 'active' && onPracticeAction && (
+          <div className="button-row note-card-lifecycle-actions">
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => onPracticeAction(note, 'pause')}
+            >
+              Pause
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => onPracticeAction(note, 'integrate')}
+            >
+              Integrated
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => onOpen(note)}
+            >
+              Change interval
+            </button>
+          </div>
+        )}
+        {note.practice?.status === 'paused' && onPracticeAction && (
+          <div className="button-row note-card-lifecycle-actions">
+            <button
+              type="button"
+              className="button primary"
+              onClick={() => onPracticeAction(note, 'resume')}
+            >
+              Resume practice
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => onPracticeAction(note, 'integrate')}
+            >
+              Integrated
+            </button>
+          </div>
+        )}
+        {note.practice?.status === 'integrated' && onPracticeAction && (
+          <div className="button-row note-card-lifecycle-actions">
+            {checkInWaiting && note.practice.checkInsEnabled && (
+              <button
+                type="button"
+                className="button primary"
+                onClick={() => onPracticeAction(note, 'confirmIntegrated')}
+              >
+                Still integrated
+              </button>
+            )}
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => onPracticeAction(note, 'resume')}
+            >
+              Resume practice
+            </button>
+            {note.practice.checkInsEnabled && (
+              <button
+                type="button"
+                className="button ghost"
+                onClick={() => onPracticeAction(note, 'stopCheckIns')}
+              >
+                Stop check-ins
+              </button>
+            )}
+          </div>
         )}
         {note.practice && (
           <div className="button-row note-card-writing-actions">

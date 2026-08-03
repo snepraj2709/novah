@@ -5,9 +5,9 @@ import {
   ErrorState,
   LoadingState,
 } from '../components/AsyncState.tsx';
-import { NoteCard } from '../components/NoteCard.tsx';
+import { NoteCard, type PracticeCardAction } from '../components/NoteCard.tsx';
 import { NoteDetailDrawer } from '../components/NoteDetailDrawer.tsx';
-import { managePractice } from '../lib/api.ts';
+import { managePractice, WebApiError } from '../lib/api.ts';
 import {
   loadPracticePage,
   loadProfile,
@@ -48,22 +48,53 @@ export function PracticePage({ userId }: { userId: string }) {
     }
   }
 
+  async function lifecycle(note: DashboardNote, action: PracticeCardAction) {
+    setError(null);
+    try {
+      const result = await managePractice({ action, noteId: note.id });
+      setDetailNote((current) =>
+        current?.id === note.id
+          ? { ...current, practice: result.practice }
+          : current,
+      );
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof WebApiError && cause.code === 'practice_slots_full'
+          ? 'All three Practice slots are in use. Pause or integrate one before resuming.'
+          : errorMessage(cause, 'Practice could not be updated.'),
+      );
+    }
+  }
+
   if (error && !data)
     return <ErrorState message={error} retry={() => void load()} />;
   if (loading && !data) return <LoadingState label="Opening Practice…" />;
 
   const sections = [
-    { title: 'Due now', notes: data?.due ?? [], reread: true },
-    { title: 'Coming up', notes: data?.upcoming ?? [], reread: false },
+    {
+      title: 'Due now',
+      notes: data?.due ?? [],
+      reread: true,
+      checkInWaiting: false,
+    },
+    {
+      title: 'Coming up',
+      notes: data?.upcoming ?? [],
+      reread: false,
+      checkInWaiting: false,
+    },
     {
       title: 'Ready to resume',
       notes: data?.readyToResume ?? [],
       reread: false,
+      checkInWaiting: false,
     },
     {
       title: 'Integration check-ins',
       notes: data?.integratedWaiting ?? [],
       reread: false,
+      checkInWaiting: true,
     },
   ];
 
@@ -86,7 +117,7 @@ export function PracticePage({ userId }: { userId: string }) {
           {error}
         </p>
       )}
-      {(data?.activeCount ?? 0) === 0 ? (
+      {sections.every((section) => section.notes.length === 0) ? (
         <EmptyState
           title="Nothing in Practice yet"
           message="Open Collection and choose Keep this with me on a saved note."
@@ -104,6 +135,10 @@ export function PracticePage({ userId }: { userId: string }) {
                     key={note.id}
                     note={note}
                     onOpen={setDetailNote}
+                    onPracticeAction={(selected, action) =>
+                      void lifecycle(selected, action)
+                    }
+                    checkInWaiting={section.checkInWaiting}
                     {...(section.reread
                       ? {
                           onReread: (selected: DashboardNote) =>
@@ -121,6 +156,7 @@ export function PracticePage({ userId }: { userId: string }) {
       {detailNote && (
         <NoteDetailDrawer
           note={detailNote}
+          localDate={data?.localDate}
           onClose={() => setDetailNote(null)}
           onPracticeUpdated={(practice) => {
             setDetailNote((current) =>

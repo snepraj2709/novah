@@ -11,13 +11,11 @@ import {
   MAX_SOURCE_TITLE_LENGTH,
   MAX_SOURCE_URL_LENGTH,
   NOTE_TYPES,
-  REVIEW_STATUSES,
   TELEGRAM_LINK_CODE_LENGTH,
 } from '../constants/index.ts';
 
 export const noteTypeSchema = z.enum(NOTE_TYPES);
 export const captureChannelSchema = z.enum(CAPTURE_CHANNELS);
-export const reviewStatusSchema = z.enum(REVIEW_STATUSES);
 
 const nonBlankString = (maximum: number) =>
   z
@@ -221,35 +219,6 @@ export const managePracticeResponseSchema = z
   })
   .strict();
 
-export const digestThemeSchema = z
-  .object({
-    title: nonBlankString(200),
-    noteIds: z
-      .array(z.string().uuid())
-      .min(2)
-      .refine((noteIds) => new Set(noteIds).size === noteIds.length),
-  })
-  .strict();
-
-export const dailyDigestSchema = z
-  .object({
-    captureCount: z.number().int().positive(),
-    sourceCount: z.number().int().nonnegative(),
-    themes: z.array(digestThemeSchema).max(3),
-    connection: z
-      .object({
-        text: nonBlankString(500),
-        noteIds: z
-          .array(z.string().uuid())
-          .min(2)
-          .refine((noteIds) => new Set(noteIds).size === noteIds.length),
-      })
-      .strict()
-      .nullable(),
-    reflectionQuestion: nonBlankString(500),
-  })
-  .strict();
-
 export type CaptureNoteRequest = z.infer<typeof captureNoteRequestSchema>;
 export type CaptureNoteResponse = z.infer<typeof captureNoteResponseSchema>;
 export type Classification = z.infer<typeof classificationSchema>;
@@ -270,4 +239,3 @@ export type ManagePracticeResponse = z.infer<
 >;
 export type PracticeState = z.infer<typeof practiceStateSchema>;
 export type PracticeEntry = z.infer<typeof practiceEntrySchema>;
-export type DailyDigest = z.infer<typeof dailyDigestSchema>;

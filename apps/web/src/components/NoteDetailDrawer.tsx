@@ -8,8 +8,9 @@ import {
   type MouseEvent,
 } from 'react';
 import { MAX_PRACTICE_ENTRY_TEXT_LENGTH } from '@novah/shared';
+import type { ManagePracticeRequest } from '@novah/shared/contracts';
 
-import { managePractice } from '../lib/api.ts';
+import { managePractice, WebApiError } from '../lib/api.ts';
 import {
   loadPracticeEntries,
   type DashboardNote,
@@ -22,6 +23,12 @@ import { formatDateTime } from '../lib/time.ts';
 
 function noteTypeLabel(value: string): string {
   return value.replaceAll('_', ' ');
+}
+
+function nextCalendarDate(date: string): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + 1);
+  return value.toISOString().slice(0, 10);
 }
 
 const CAPTURE_CHANNEL_LABELS: Record<
@@ -38,10 +45,12 @@ export function NoteDetailDrawer({
   note,
   onClose,
   onPracticeUpdated,
+  localDate,
 }: {
   note: DashboardNote;
   onClose: () => void;
   onPracticeUpdated?: (practice: DashboardPractice) => void;
+  localDate?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -55,6 +64,13 @@ export function NoteDetailDrawer({
   const [promptVisible, setPromptVisible] = useState(false);
   const [saving, setSaving] = useState<'reflection' | 'story' | null>(null);
   const [entryError, setEntryError] = useState<string | null>(null);
+  const [practice, setPractice] = useState(note.practice);
+  const [intervalDays, setIntervalDays] = useState(
+    note.practice?.intervalDays ?? 1,
+  );
+  const [resumeOn, setResumeOn] = useState('');
+  const [lifecycleBusy, setLifecycleBusy] = useState<string | null>(null);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -117,7 +133,7 @@ export function NoteDetailDrawer({
     const dialog = event.currentTarget;
     const focusable = Array.from(
       dialog.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), textarea:not([disabled])',
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
       ),
     );
     const first = focusable[0];
@@ -168,11 +184,36 @@ export function NoteDetailDrawer({
       );
       if (entryKind === 'reflection') setReflection('');
       else setStory('');
+      setPractice(result.practice);
+      setIntervalDays(result.practice.intervalDays);
       onPracticeUpdated?.(result.practice);
     } catch (cause) {
       setEntryError(errorMessage(cause, 'Practice entry could not be saved.'));
     } finally {
       setSaving(null);
+    }
+  }
+
+  async function updatePractice(
+    request: Exclude<ManagePracticeRequest, { action: 'addEntry' }>,
+  ) {
+    if (lifecycleBusy) return;
+    setLifecycleBusy(request.action);
+    setLifecycleError(null);
+    try {
+      const result = await managePractice(request);
+      setPractice(result.practice);
+      setIntervalDays(result.practice.intervalDays);
+      if (request.action === 'pause') setResumeOn('');
+      onPracticeUpdated?.(result.practice);
+    } catch (cause) {
+      setLifecycleError(
+        cause instanceof WebApiError && cause.code === 'practice_slots_full'
+          ? 'All three Practice slots are in use. Pause or integrate one before resuming.'
+          : errorMessage(cause, 'Practice could not be updated.'),
+      );
+    } finally {
+      setLifecycleBusy(null);
     }
   }
 
@@ -209,31 +250,266 @@ export function NoteDetailDrawer({
         <div className="note-detail-content">
           <section aria-labelledby={`${titleId}-practice`}>
             <h3 id={`${titleId}-practice`}>Practice</h3>
-            {note.practice ? (
-              <dl>
-                <div>
-                  <dt>Status</dt>
-                  <dd>
-                    {note.practice.status === 'active'
-                      ? 'Practising'
-                      : note.practice.status}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Interval</dt>
-                  <dd>{note.practice.intervalDays} day</dd>
-                </div>
-                {note.practice.nextDueOn && (
+            {practice ? (
+              <>
+                <dl>
                   <div>
-                    <dt>Next due</dt>
-                    <dd>{note.practice.nextDueOn}</dd>
+                    <dt>Status</dt>
+                    <dd>
+                      {practice.status === 'active'
+                        ? 'Practising'
+                        : practice.status === 'paused' && practice.readyToResume
+                          ? 'Paused · Ready to resume'
+                          : practice.status}
+                    </dd>
                   </div>
+                  <div>
+                    <dt>Interval</dt>
+                    <dd>
+                      {practice.intervalDays}{' '}
+                      {practice.intervalDays === 1 ? 'day' : 'days'}
+                    </dd>
+                  </div>
+                  {practice.nextDueOn && (
+                    <div>
+                      <dt>Next due</dt>
+                      <dd>{practice.nextDueOn}</dd>
+                    </div>
+                  )}
+                  {practice.pausedUntil && (
+                    <div>
+                      <dt>Resume date</dt>
+                      <dd>{practice.pausedUntil}</dd>
+                    </div>
+                  )}
+                  {practice.status === 'integrated' && (
+                    <div>
+                      <dt>Next check-in</dt>
+                      <dd>
+                        {practice.checkInsEnabled
+                          ? (practice.nextCheckInOn ?? 'Waiting')
+                          : 'Stopped'}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+
+                <div className="practice-lifecycle-controls">
+                  {practice.status === 'active' && (
+                    <>
+                      <div className="button-row">
+                        <button
+                          type="button"
+                          className="button primary"
+                          disabled={lifecycleBusy !== null}
+                          onClick={() =>
+                            void updatePractice({
+                              action: 'reread',
+                              noteId: note.id,
+                            })
+                          }
+                        >
+                          Reread
+                        </button>
+                        <button
+                          type="button"
+                          className="button ghost"
+                          disabled={lifecycleBusy !== null}
+                          onClick={() =>
+                            void updatePractice({
+                              action: 'integrate',
+                              noteId: note.id,
+                            })
+                          }
+                        >
+                          Integrated
+                        </button>
+                      </div>
+
+                      <div className="practice-control-row">
+                        <label htmlFor={`${titleId}-interval`}>
+                          Interval
+                          <select
+                            id={`${titleId}-interval`}
+                            value={intervalDays}
+                            disabled={lifecycleBusy !== null}
+                            onChange={(event) =>
+                              setIntervalDays(Number(event.target.value))
+                            }
+                          >
+                            {Array.from(
+                              { length: 30 },
+                              (_, index) => index + 1,
+                            ).map((days) => (
+                              <option key={days} value={days}>
+                                {days} {days === 1 ? 'day' : 'days'}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          className="button ghost"
+                          disabled={
+                            lifecycleBusy !== null ||
+                            intervalDays === practice.intervalDays
+                          }
+                          onClick={() =>
+                            void updatePractice({
+                              action: 'setInterval',
+                              noteId: note.id,
+                              intervalDays,
+                            })
+                          }
+                        >
+                          Change interval
+                        </button>
+                      </div>
+
+                      <div className="practice-control-row">
+                        <label htmlFor={`${titleId}-resume-on`}>
+                          Resume date (optional)
+                          <input
+                            id={`${titleId}-resume-on`}
+                            type="date"
+                            value={resumeOn}
+                            min={
+                              localDate
+                                ? nextCalendarDate(localDate)
+                                : undefined
+                            }
+                            disabled={lifecycleBusy !== null}
+                            onChange={(event) =>
+                              setResumeOn(event.target.value)
+                            }
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="button ghost"
+                          disabled={lifecycleBusy !== null}
+                          onClick={() =>
+                            void updatePractice({
+                              action: 'pause',
+                              noteId: note.id,
+                              ...(resumeOn ? { resumeOn } : {}),
+                            })
+                          }
+                        >
+                          {resumeOn ? 'Pause until date' : 'Pause indefinitely'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {practice.status === 'paused' && (
+                    <div className="button-row">
+                      <button
+                        type="button"
+                        className="button primary"
+                        disabled={lifecycleBusy !== null}
+                        onClick={() =>
+                          void updatePractice({
+                            action: 'resume',
+                            noteId: note.id,
+                          })
+                        }
+                      >
+                        Resume practice
+                      </button>
+                      <button
+                        type="button"
+                        className="button ghost"
+                        disabled={lifecycleBusy !== null}
+                        onClick={() =>
+                          void updatePractice({
+                            action: 'integrate',
+                            noteId: note.id,
+                          })
+                        }
+                      >
+                        Integrated
+                      </button>
+                    </div>
+                  )}
+
+                  {practice.status === 'integrated' && (
+                    <div className="button-row">
+                      {practice.checkInsEnabled &&
+                        practice.nextCheckInOn &&
+                        localDate &&
+                        practice.nextCheckInOn <= localDate && (
+                          <button
+                            type="button"
+                            className="button primary"
+                            disabled={lifecycleBusy !== null}
+                            onClick={() =>
+                              void updatePractice({
+                                action: 'confirmIntegrated',
+                                noteId: note.id,
+                              })
+                            }
+                          >
+                            Still integrated
+                          </button>
+                        )}
+                      <button
+                        type="button"
+                        className="button ghost"
+                        disabled={lifecycleBusy !== null}
+                        onClick={() =>
+                          void updatePractice({
+                            action: 'resume',
+                            noteId: note.id,
+                          })
+                        }
+                      >
+                        Resume practice
+                      </button>
+                      {practice.checkInsEnabled && (
+                        <button
+                          type="button"
+                          className="button ghost"
+                          disabled={lifecycleBusy !== null}
+                          onClick={() =>
+                            void updatePractice({
+                              action: 'stopCheckIns',
+                              noteId: note.id,
+                            })
+                          }
+                        >
+                          Stop check-ins
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {lifecycleError && (
+                  <p className="message error" role="alert">
+                    {lifecycleError}
+                  </p>
                 )}
-              </dl>
+              </>
             ) : (
-              <p>
-                Saved only. Choose Keep this with me from Collection to begin.
-              </p>
+              <div className="practice-lifecycle-controls">
+                <p>Saved only.</p>
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={lifecycleBusy !== null}
+                  onClick={() =>
+                    void updatePractice({ action: 'activate', noteId: note.id })
+                  }
+                >
+                  Keep this with me
+                </button>
+                {lifecycleError && (
+                  <p className="message error" role="alert">
+                    {lifecycleError}
+                  </p>
+                )}
+              </div>
             )}
           </section>
 
@@ -244,7 +520,7 @@ export function NoteDetailDrawer({
             <p className="note-detail-original">{note.originalText}</p>
           </section>
 
-          {note.practice && (
+          {practice && (
             <section
               className="practice-writing"
               aria-labelledby={`${titleId}-writing`}

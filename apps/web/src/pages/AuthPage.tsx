@@ -53,8 +53,8 @@ export function AuthPage() {
           <p className="eyebrow">Your private knowledge practice</p>
           <h1>Keep what matters. Find it when it matters.</h1>
           <p className="auth-lede">
-            Capture ideas from the web and Telegram, then let Novah bring them
-            back through grounded search, daily digests, and spaced review.
+            Capture ideas from the web and Telegram, find them by meaning, and
+            deliberately practise the notes you want to keep close.
           </p>
         </div>
         <p className="privacy-inline">
@@ -72,7 +72,7 @@ export function AuthPage() {
           </h2>
           <p className="muted">
             {mode === 'sign-in'
-              ? 'Your library and delivery settings are waiting.'
+              ? 'Your Collection, Practice, and settings are waiting.'
               : 'Use email and a password of at least eight characters.'}
           </p>
           <form className="form-stack" onSubmit={submit}>

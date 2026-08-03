@@ -16,7 +16,7 @@ import type {
   TelegramMessage,
   TelegramMessageOptions,
   TelegramPractice,
-  TelegramPracticeEntryIntent,
+  TelegramPracticeReplyIntent,
   TelegramRepository,
   TelegramSettings,
   VoiceTranscriber,
@@ -30,6 +30,10 @@ const PRACTICE_REREAD_CALLBACK_PATTERN =
   /^p:r:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
 const PRACTICE_ENTRY_CALLBACK_PATTERN =
   /^p:e:([rs]):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
+const PRACTICE_INTERVAL_CALLBACK_PATTERN =
+  /^p:n:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
+const PRACTICE_LIFECYCLE_CALLBACK_PATTERN =
+  /^p:([piucx]):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
 const TELEGRAM_NOTE_PREVIEW_LENGTH = 240;
 
 export interface TelegramWebhookDependencies {
@@ -197,7 +201,9 @@ async function dispatchCallback(
   const userId = await dependencies.repository.userIdForChat(callback.chatId);
   const reread = callback.data.match(PRACTICE_REREAD_CALLBACK_PATTERN);
   const entry = callback.data.match(PRACTICE_ENTRY_CALLBACK_PATTERN);
-  if (!userId || (!reread && !entry)) {
+  const interval = callback.data.match(PRACTICE_INTERVAL_CALLBACK_PATTERN);
+  const lifecycle = callback.data.match(PRACTICE_LIFECYCLE_CALLBACK_PATTERN);
+  if (!userId || (!reread && !entry && !interval && !lifecycle)) {
     await dependencies.telegram.answerCallbackQuery(
       callback.id,
       'This Practice action is unavailable.',
@@ -213,26 +219,79 @@ async function dispatchCallback(
     return;
   }
 
-  const intent: TelegramPracticeEntryIntent =
-    entry![1].toLowerCase() === 'r' ? 'reflection' : 'story';
+  if (lifecycle) {
+    const action = {
+      p: 'pause',
+      i: 'integrate',
+      u: 'resume',
+      c: 'confirmIntegrated',
+      x: 'stopCheckIns',
+    }[lifecycle[1].toLowerCase()] as
+      'pause' | 'integrate' | 'resume' | 'confirmIntegrated' | 'stopCheckIns';
+    try {
+      await dependencies.repository.managePractice(
+        userId,
+        action,
+        lifecycle[2],
+      );
+      await dependencies.telegram.answerCallbackQuery(
+        callback.id,
+        {
+          pause: 'Practice paused.',
+          integrate: 'Marked Integrated.',
+          resume: 'Practice resumed.',
+          confirmIntegrated: 'Integration confirmed.',
+          stopCheckIns: 'Check-ins stopped.',
+        }[action],
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'stale_action') {
+        await dependencies.telegram.answerCallbackQuery(
+          callback.id,
+          'This action was already handled.',
+        );
+        return;
+      }
+      if (error instanceof ApiError && error.code === 'practice_slots_full') {
+        await dependencies.telegram.answerCallbackQuery(
+          callback.id,
+          'All three Practice slots are in use.',
+        );
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  const intent: TelegramPracticeReplyIntent = interval
+    ? 'interval'
+    : entry![1].toLowerCase() === 'r'
+      ? 'reflection'
+      : 'story';
+  const noteId = interval ? interval[1] : entry![2];
   const promptMessageId = await dependencies.telegram.sendForceReply(
     callback.chatId,
-    intent === 'reflection'
-      ? 'Reply with your Reflection. Send text or a voice note.'
-      : 'Reply with your Story. Send text or a voice note.',
+    intent === 'interval'
+      ? 'Reply with one whole number from 1 to 30 for the Practice interval.'
+      : intent === 'reflection'
+        ? 'Reply with your Reflection. Send text or a voice note.'
+        : 'Reply with your Story. Send text or a voice note.',
   );
   await dependencies.repository.createReplyPrompt(
     userId,
     callback.chatId,
     promptMessageId,
-    entry![2],
+    noteId,
     intent,
   );
   await dependencies.telegram.answerCallbackQuery(
     callback.id,
-    intent === 'reflection'
-      ? 'Reflection prompt opened.'
-      : 'Story prompt opened.',
+    intent === 'interval'
+      ? 'Interval prompt opened.'
+      : intent === 'reflection'
+        ? 'Reflection prompt opened.'
+        : 'Story prompt opened.',
   );
 }
 
@@ -353,16 +412,47 @@ async function practiceReply(
   dependencies: TelegramWebhookDependencies,
 ): Promise<void> {
   const promptMessageId = message.replyToMessageId!;
-  let intent: TelegramPracticeEntryIntent;
+  let intent: TelegramPracticeReplyIntent;
   let text: string;
   let sourceChannel: 'telegram_text' | 'telegram_voice';
   try {
-    if (message.voice) {
-      intent = await dependencies.repository.inspectReplyPrompt(
+    intent = await dependencies.repository.inspectReplyPrompt(
+      userId,
+      message.chatId,
+      promptMessageId,
+    );
+    if (intent === 'interval') {
+      if (message.voice) {
+        await send(
+          dependencies.telegram,
+          message.chatId,
+          'Intervals must be text. Reply with one whole number from 1 to 30.',
+        );
+        return;
+      }
+      const value = message.text?.trim() ?? '';
+      if (!/^(?:[1-9]|[12][0-9]|30)$/u.test(value)) {
+        await send(
+          dependencies.telegram,
+          message.chatId,
+          'Reply with one whole number from 1 to 30. This prompt is still open.',
+        );
+        return;
+      }
+      const practice = await dependencies.repository.consumeIntervalReply(
         userId,
         message.chatId,
         promptMessageId,
+        Number(value),
       );
+      await send(
+        dependencies.telegram,
+        message.chatId,
+        `Practice interval changed to ${practice.intervalDays} ${practice.intervalDays === 1 ? 'day' : 'days'}.`,
+      );
+      return;
+    }
+    if (message.voice) {
       if (voiceExceedsLimits(message)) {
         await send(
           dependencies.telegram,
@@ -376,7 +466,6 @@ async function practiceReply(
     } else {
       text = message.text ?? '';
       sourceChannel = 'telegram_text';
-      intent = 'reflection';
     }
     intent = await dependencies.repository.consumePracticeReply(
       userId,
@@ -471,6 +560,16 @@ async function dispatchMessage(
             [
               { text: 'Reflect', callbackData: `p:e:r:${practice.noteId}` },
               { text: 'Add story', callbackData: `p:e:s:${practice.noteId}` },
+            ],
+            [
+              { text: 'Pause', callbackData: `p:p:${practice.noteId}` },
+              { text: 'Integrated', callbackData: `p:i:${practice.noteId}` },
+            ],
+            [
+              {
+                text: 'Change interval',
+                callbackData: `p:n:${practice.noteId}`,
+              },
             ],
           ],
         },

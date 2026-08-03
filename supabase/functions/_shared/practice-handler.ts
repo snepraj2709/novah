@@ -7,10 +7,7 @@ import { ApiError } from './errors.ts';
 import { parseJson } from './http.ts';
 import { normalizeCapturedText } from './normalization.ts';
 import type { Authenticator } from './types.ts';
-import type {
-  PracticeRepository,
-  SupportedPracticeAction,
-} from './practice-types.ts';
+import type { PracticeRepository } from './practice-types.ts';
 
 export interface ManagePracticeDependencies {
   authenticator: Authenticator;
@@ -50,17 +47,6 @@ export async function handleManagePractice(
     );
     return Response.json(managePracticeResponseSchema.parse(result));
   }
-  if (parsed.data.action !== 'activate' && parsed.data.action !== 'reread') {
-    throw new ApiError(
-      409,
-      'invalid_transition',
-      'This Practice action is not available yet.',
-    );
-  }
-
-  const practice = await dependencies.repository.managePractice(
-    parsed.data.action satisfies SupportedPracticeAction,
-    parsed.data.noteId,
-  );
+  const practice = await dependencies.repository.managePractice(parsed.data);
   return Response.json(managePracticeResponseSchema.parse({ practice }));
 }

@@ -2,7 +2,9 @@ import { MAX_TELEGRAM_MESSAGE_LENGTH } from '../../../packages/shared/src/consta
 import { ApiError, errorResponse } from './errors.ts';
 import { parseOptionalJson } from './http.ts';
 import type {
+  ClaimedCheckIn,
   ClaimedPractice,
+  ClaimedReadyPractice,
   NotificationProfile,
   NotificationRepository,
   NotificationTelegramGateway,
@@ -126,17 +128,125 @@ export function practiceMessage(practice: ClaimedPractice): string {
     : `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
 }
 
+export function practiceKeyboard(noteId: string) {
+  return [
+    [{ text: 'Reread', callbackData: `p:r:${noteId}` }],
+    [
+      { text: 'Reflect', callbackData: `p:e:r:${noteId}` },
+      { text: 'Add story', callbackData: `p:e:s:${noteId}` },
+    ],
+    [
+      { text: 'Pause', callbackData: `p:p:${noteId}` },
+      { text: 'Integrated', callbackData: `p:i:${noteId}` },
+    ],
+    [{ text: 'Change interval', callbackData: `p:n:${noteId}` }],
+  ];
+}
+
+export function readyPracticeMessage(practice: ClaimedReadyPractice): string {
+  const source = practice.sourceTitle
+    ? `\n\nSource: ${practice.sourceTitle}`
+    : '';
+  const text = `Ready to resume\n\n${practice.originalText}${source}\n\nA Practice slot was not available when this pause ended.`;
+  return text.length <= MAX_TELEGRAM_MESSAGE_LENGTH
+    ? text
+    : `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
+}
+
+export function checkInMessage(checkIns: ClaimedCheckIn[]): string {
+  return [
+    'Integrated check-in',
+    '',
+    ...checkIns.flatMap((checkIn, index) => [
+      `${index + 1}. ${checkIn.originalText}`,
+      ...(checkIn.sourceTitle ? [`Source: ${checkIn.sourceTitle}`] : []),
+      '',
+    ]),
+  ]
+    .join('\n')
+    .slice(0, MAX_TELEGRAM_MESSAGE_LENGTH);
+}
+
 export async function processNotifications(
   dependencies: NotificationProcessorDependencies,
-): Promise<{ practicesSent: number; errors: number }> {
+): Promise<{
+  practicesSent: number;
+  readySent: number;
+  checkInPacketsSent: number;
+  errors: number;
+}> {
   const now = dependencies.now?.() ?? new Date();
   const profiles = await dependencies.repository.profiles();
-  const counts = { practicesSent: 0, errors: 0 };
+  const counts = {
+    practicesSent: 0,
+    readySent: 0,
+    checkInPacketsSent: 0,
+    errors: 0,
+  };
 
   const processProfile = async (profile: NotificationProfile) => {
-    const result = { practicesSent: 0, errors: 0 };
+    const result = {
+      practicesSent: 0,
+      readySent: 0,
+      checkInPacketsSent: 0,
+      errors: 0,
+    };
     const window = scheduleWindow(now, profile);
     if (!window.practiceDate) return result;
+    try {
+      await dependencies.repository.reconcileDuePauses(
+        profile.userId,
+        window.practiceDate,
+        now.toISOString(),
+      );
+    } catch {
+      result.errors += 1;
+      return result;
+    }
+    if (profile.chatId === null) return result;
+
+    let readyPractices: ClaimedReadyPractice[];
+    try {
+      readyPractices = await dependencies.repository.claimReadyPractices(
+        profile.userId,
+        now.toISOString(),
+      );
+    } catch {
+      result.errors += 1;
+      readyPractices = [];
+    }
+    for (const practice of readyPractices) {
+      try {
+        await dependencies.telegram.sendMessage(
+          profile.chatId,
+          readyPracticeMessage(practice),
+          {
+            inlineKeyboard: [
+              [
+                {
+                  text: 'Resume practice',
+                  callbackData: `p:u:${practice.noteId}`,
+                },
+              ],
+            ],
+          },
+        );
+        if (
+          await dependencies.repository.markReadyPracticeSent(
+            profile.userId,
+            practice.noteId,
+            window.practiceDate,
+          )
+        ) {
+          result.readySent += 1;
+        } else {
+          result.errors += 1;
+        }
+      } catch {
+        result.errors += 1;
+      }
+    }
+
     let practices: ClaimedPractice[];
     try {
       practices = await dependencies.repository.claimDuePractices(
@@ -154,24 +264,7 @@ export async function processNotifications(
           profile.chatId,
           practiceMessage(practice),
           {
-            inlineKeyboard: [
-              [
-                {
-                  text: 'Reread',
-                  callbackData: practiceCallbackData(practice.noteId),
-                },
-              ],
-              [
-                {
-                  text: 'Reflect',
-                  callbackData: `p:e:r:${practice.noteId}`,
-                },
-                {
-                  text: 'Add story',
-                  callbackData: `p:e:s:${practice.noteId}`,
-                },
-              ],
-            ],
+            inlineKeyboard: practiceKeyboard(practice.noteId),
           },
         );
         if (
@@ -190,6 +283,59 @@ export async function processNotifications(
         result.errors += 1;
       }
     }
+
+    let checkIns: ClaimedCheckIn[];
+    try {
+      checkIns = await dependencies.repository.claimDueCheckIns(
+        profile.userId,
+        window.practiceDate,
+        now.toISOString(),
+      );
+    } catch {
+      result.errors += 1;
+      checkIns = [];
+    }
+    if (checkIns.length > 0) {
+      try {
+        await dependencies.telegram.sendMessage(
+          profile.chatId,
+          checkInMessage(checkIns),
+          {
+            inlineKeyboard: checkIns.flatMap((checkIn, index) => [
+              [
+                {
+                  text: `${index + 1} Still integrated`,
+                  callbackData: `p:c:${checkIn.noteId}`,
+                },
+              ],
+              [
+                {
+                  text: `${index + 1} Resume practice`,
+                  callbackData: `p:u:${checkIn.noteId}`,
+                },
+                {
+                  text: `${index + 1} Stop check-ins`,
+                  callbackData: `p:x:${checkIn.noteId}`,
+                },
+              ],
+            ]),
+          },
+        );
+        if (
+          await dependencies.repository.markCheckInsSent(
+            profile.userId,
+            checkIns.map((checkIn) => checkIn.noteId),
+            window.practiceDate,
+          )
+        ) {
+          result.checkInPacketsSent += 1;
+        } else {
+          result.errors += 1;
+        }
+      } catch {
+        result.errors += 1;
+      }
+    }
     return result;
   };
 
@@ -199,6 +345,8 @@ export async function processNotifications(
     );
     for (const result of batch) {
       counts.practicesSent += result.practicesSent;
+      counts.readySent += result.readySent;
+      counts.checkInPacketsSent += result.checkInPacketsSent;
       counts.errors += result.errors;
     }
   }

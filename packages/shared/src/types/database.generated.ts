@@ -607,6 +607,19 @@ export type Database = {
         };
         Returns: string;
       };
+      claim_due_check_ins: {
+        Args: {
+          input_claimed_at: string;
+          input_local_date: string;
+          input_user_id: string;
+        };
+        Returns: {
+          next_check_in_on: string;
+          note_id: string;
+          original_text: string;
+          source_title: string;
+        }[];
+      };
       claim_due_practices: {
         Args: {
           input_claimed_at: string;
@@ -634,9 +647,38 @@ export type Database = {
           stage: number;
         }[];
       };
+      claim_ready_practices: {
+        Args: { input_claimed_at: string; input_user_id: string };
+        Returns: {
+          note_id: string;
+          original_text: string;
+          source_title: string;
+        }[];
+      };
       configure_notification_cron: {
         Args: { input_cron_secret: string };
         Returns: number;
+      };
+      consume_telegram_interval_reply: {
+        Args: {
+          input_chat_id: number;
+          input_interval_days: number;
+          input_now?: string;
+          input_prompt_message_id: number;
+          input_user_id: string;
+        };
+        Returns: {
+          check_ins_enabled: boolean;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
       };
       consume_telegram_link_code: {
         Args: { input_chat_id: number; input_code_hash: string };
@@ -699,7 +741,12 @@ export type Database = {
       is_http_url: { Args: { input_url: string }; Returns: boolean };
       is_valid_timezone: { Args: { timezone_name: string }; Returns: boolean };
       manage_practice: {
-        Args: { input_action: string; input_note_id: string };
+        Args: {
+          input_action: string;
+          input_interval_days?: number;
+          input_note_id: string;
+          input_resume_on?: string;
+        };
         Returns: {
           check_ins_enabled: boolean;
           integrated_at: string;
@@ -716,8 +763,10 @@ export type Database = {
       manage_practice_core: {
         Args: {
           input_action: string;
+          input_interval_days?: number;
           input_note_id: string;
           input_now?: string;
+          input_resume_on?: string;
           input_user_id: string;
         };
         Returns: {
@@ -736,7 +785,9 @@ export type Database = {
       manage_practice_for_user: {
         Args: {
           input_action: string;
+          input_interval_days?: number;
           input_note_id: string;
+          input_resume_on?: string;
           input_user_id: string;
         };
         Returns: {
@@ -752,6 +803,14 @@ export type Database = {
           status: Database['public']['Enums']['practice_status'];
         }[];
       };
+      mark_check_ins_sent: {
+        Args: {
+          input_local_date: string;
+          input_note_ids: string[];
+          input_user_id: string;
+        };
+        Returns: boolean;
+      };
       mark_daily_digest_sent: {
         Args: { input_digest_id: string; input_sent_at?: string };
         Returns: boolean;
@@ -761,6 +820,14 @@ export type Database = {
           input_local_date: string;
           input_note_id: string;
           input_sent_at: string;
+          input_user_id: string;
+        };
+        Returns: boolean;
+      };
+      mark_ready_practice_sent: {
+        Args: {
+          input_local_date: string;
+          input_note_id: string;
           input_user_id: string;
         };
         Returns: boolean;
@@ -839,6 +906,17 @@ export type Database = {
       practice_local_date: {
         Args: { input_now?: string; input_user_id: string };
         Returns: string;
+      };
+      reconcile_due_pauses: {
+        Args: {
+          input_local_date: string;
+          input_now: string;
+          input_user_id: string;
+        };
+        Returns: {
+          ready_count: number;
+          resumed_count: number;
+        }[];
       };
       record_review_feedback_for_user: {
         Args: {

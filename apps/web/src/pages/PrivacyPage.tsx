@@ -31,11 +31,11 @@ export function PrivacyPage({ signedIn }: { signedIn: boolean }) {
             Novah stores your account details, saved note text, optional
             personal context, source details, assigned Type, embeddings,
             Practice state, content-free Practice events, and delivery settings
-            in Supabase. Legacy digest and Review records remain until the
-            separately approved final cleanup. Legacy summaries, tags, and
-            recall prompts may remain on historical notes until you delete the
-            note or account; new captures do not generate them. These records
-            are scoped to your authenticated account.
+            in Supabase. Legacy notification records remain until the separately
+            approved final cleanup. Legacy summaries, tags, and recall prompts
+            may remain on historical notes until you delete the note or account;
+            new captures do not generate them. These records are scoped to your
+            authenticated account.
           </p>
         </section>
         <section>

@@ -15,21 +15,7 @@ export const CAPTURE_CHANNELS = [
   'telegram_voice',
 ] as const;
 
-export const REVIEW_STATUSES = [
-  'pending',
-  'sent',
-  'remembered',
-  'partial',
-  'missed',
-  'skipped',
-] as const;
-
-export const REVIEW_STAGES = [1, 2, 3, 4, 5] as const;
-export const REVIEW_STAGE_DAY_OFFSETS = [1, 2, 3, 7, 21] as const;
-
 export const DEFAULT_TIMEZONE = 'Asia/Kolkata';
-export const DEFAULT_DIGEST_TIME = '21:00';
-export const DEFAULT_REVIEW_TIME = '09:00';
 export const DEFAULT_PRACTICE_TIME = '09:00';
 export const DEFAULT_PRACTICE_INTERVAL_DAYS = 1;
 export const MAX_ACTIVE_PRACTICES = 3;

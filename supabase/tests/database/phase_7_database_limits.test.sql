@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(19);
+select extensions.plan(17);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values (
@@ -255,63 +255,6 @@ select extensions.lives_ok(
     )
   $$,
   'all exact public-contract limits remain accepted'
-);
-
-reset role;
-set local role service_role;
-select set_config('request.jwt.claim.role', 'service_role', true);
-
-insert into public.notes (
-  id, user_id, client_request_id, original_text, note_type, summary, tags,
-  recall_prompt, capture_channel
-)
-select
-  md5('phase-7-review-note-' || fixture.index)::uuid,
-  '00000000-0000-4000-8000-00000000007a',
-  md5('phase-7-review-request-' || fixture.index)::uuid,
-  'Synthetic review backlog note ' || fixture.index,
-  'lesson',
-  'Synthetic review backlog summary.',
-  array['review-backlog'],
-  'What belongs in this synthetic review?',
-  'web'
-from generate_series(1, 17) as fixture(index);
-
-insert into public.review_events (user_id, note_id, stage, due_on)
-select
-  '00000000-0000-4000-8000-00000000007a',
-  md5('phase-7-review-note-' || fixture.index)::uuid,
-  stage.value,
-  current_date
-from generate_series(1, 17) as fixture(index)
-cross join generate_series(1, 5) as stage(value);
-
-create temporary table claimed_review_backlog on commit drop as
-select *
-from public.claim_due_reviews(
-  '00000000-0000-4000-8000-00000000007a',
-  current_date,
-  statement_timestamp()
-);
-
-select extensions.is(
-  (select count(*) from claimed_review_backlog),
-  80::bigint,
-  'one review claim stays below the mutable API result ceiling'
-);
-
-select extensions.is(
-  (
-    select count(*)
-    from public.review_events
-    where
-      user_id = '00000000-0000-4000-8000-00000000007a'
-      and status = 'pending'
-      and delivery_claimed_at is null
-      and due_on <= current_date
-  ),
-  5::bigint,
-  'excess review backlog remains unclaimed for the next invocation'
 );
 
 select * from extensions.finish();

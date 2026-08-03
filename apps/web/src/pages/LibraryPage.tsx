@@ -21,6 +21,7 @@ import {
   deleteOwnedNote,
   loadAllNotes,
   loadLibraryPage,
+  loadProfile,
   loadPracticeMap,
   NOTE_TYPES,
   searchMatchNote,
@@ -29,6 +30,7 @@ import {
 } from '../lib/dashboard.ts';
 import { errorMessage } from '../lib/errors.ts';
 import { downloadText, jsonExport, markdownExport } from '../lib/export.ts';
+import { localDateFor } from '../lib/time.ts';
 
 const PAGE_SIZE = 6;
 
@@ -57,6 +59,7 @@ export function CollectionPage({ userId }: { userId: string }) {
   const [deleteTarget, setDeleteTarget] = useState<DashboardNote | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [detailNote, setDetailNote] = useState<DashboardNote | null>(null);
+  const [localDate, setLocalDate] = useState<string | undefined>();
   const browseRequest = useRef(0);
   const searchRequest = useRef(0);
 
@@ -66,16 +69,20 @@ export function CollectionPage({ userId }: { userId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await loadLibraryPage({
-        userId,
-        noteType,
-        practiceStatus: status,
-        page,
-        pageSize: PAGE_SIZE,
-      });
+      const [result, profile] = await Promise.all([
+        loadLibraryPage({
+          userId,
+          noteType,
+          practiceStatus: status,
+          page,
+          pageSize: PAGE_SIZE,
+        }),
+        loadProfile(userId),
+      ]);
       if (requestId === browseRequest.current) {
         setNotes(result.notes);
         setTotal(result.total);
+        setLocalDate(localDateFor(new Date(), profile.timezone));
       }
     } catch (cause) {
       if (requestId === browseRequest.current) {
@@ -453,6 +460,7 @@ export function CollectionPage({ userId }: { userId: string }) {
       {detailNote && (
         <NoteDetailDrawer
           note={detailNote}
+          localDate={localDate}
           onClose={() => setDetailNote(null)}
           onPracticeUpdated={(practice) => {
             setDetailNote((current) =>
@@ -468,6 +476,7 @@ export function CollectionPage({ userId }: { userId: string }) {
                 new Map(current).set(practice.noteId, practice),
               );
             }
+            if (!searchMode) void load();
           }}
         />
       )}

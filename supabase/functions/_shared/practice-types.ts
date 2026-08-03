@@ -1,16 +1,17 @@
 import type {
+  ManagePracticeRequest,
   ManagePracticeResponse,
   PracticeEntry,
   PracticeState,
 } from './contracts.ts';
 
-export type SupportedPracticeAction = 'activate' | 'reread';
+export type PracticeLifecycleRequest = Exclude<
+  ManagePracticeRequest,
+  { action: 'addEntry' }
+>;
 
 export interface PracticeRepository {
-  managePractice(
-    action: SupportedPracticeAction,
-    noteId: string,
-  ): Promise<PracticeState>;
+  managePractice(request: PracticeLifecycleRequest): Promise<PracticeState>;
   addEntry(
     noteId: string,
     entryKind: PracticeEntry['kind'],

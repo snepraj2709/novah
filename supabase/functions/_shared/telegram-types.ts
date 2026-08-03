@@ -1,6 +1,7 @@
 import type {
   CaptureNoteRequest,
   CaptureNoteResponse,
+  PracticeState,
   SearchNotesRequest,
   SearchNotesResponse,
 } from './contracts.ts';
@@ -22,8 +23,16 @@ export interface TelegramMessage {
   forwarded: boolean;
 }
 
-export type TelegramPracticeEntryIntent = 'reflection' | 'story';
+export type TelegramPracticeReplyIntent = 'reflection' | 'story' | 'interval';
 export type TelegramPracticeEntrySource = 'telegram_text' | 'telegram_voice';
+export type TelegramPracticeAction =
+  | 'activate'
+  | 'reread'
+  | 'pause'
+  | 'resume'
+  | 'integrate'
+  | 'confirmIntegrated'
+  | 'stopCheckIns';
 
 export interface TelegramUpdate {
   updateId: number;
@@ -58,28 +67,34 @@ export interface TelegramRepository {
   settings(userId: string): Promise<TelegramSettings>;
   managePractice(
     userId: string,
-    action: 'activate' | 'reread',
+    action: TelegramPracticeAction,
     noteId: string,
-  ): Promise<void>;
+  ): Promise<PracticeState>;
   createReplyPrompt(
     userId: string,
     chatId: number,
     promptMessageId: number,
     noteId: string,
-    intent: TelegramPracticeEntryIntent,
+    intent: TelegramPracticeReplyIntent,
   ): Promise<void>;
   inspectReplyPrompt(
     userId: string,
     chatId: number,
     promptMessageId: number,
-  ): Promise<TelegramPracticeEntryIntent>;
+  ): Promise<TelegramPracticeReplyIntent>;
   consumePracticeReply(
     userId: string,
     chatId: number,
     promptMessageId: number,
     text: string,
     sourceChannel: TelegramPracticeEntrySource,
-  ): Promise<TelegramPracticeEntryIntent>;
+  ): Promise<'reflection' | 'story'>;
+  consumeIntervalReply(
+    userId: string,
+    chatId: number,
+    promptMessageId: number,
+    intervalDays: number,
+  ): Promise<PracticeState>;
 }
 
 export interface TelegramKnowledgeService {

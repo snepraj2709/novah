@@ -12,6 +12,7 @@ import {
 import type {
   CaptureNoteRequest,
   CaptureNoteResponse,
+  PracticeState,
   SearchNotesRequest,
   SearchNotesResponse,
 } from '../_shared/contracts.ts';
@@ -20,8 +21,9 @@ import type {
   TelegramGateway,
   TelegramKnowledgeService,
   TelegramPractice,
-  TelegramPracticeEntryIntent,
+  TelegramPracticeAction,
   TelegramPracticeEntrySource,
+  TelegramPracticeReplyIntent,
   TelegramRepository,
   TelegramSettings,
   VoiceTranscriber,
@@ -31,6 +33,18 @@ const SECRET = 'synthetic_webhook_secret';
 const USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const NOTE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CHAT_ID = 700000000001;
+const PRACTICE_STATE: PracticeState = {
+  noteId: NOTE_ID,
+  status: 'active',
+  intervalDays: 5,
+  nextDueOn: '2026-08-08',
+  pausedUntil: null,
+  readyToResume: false,
+  integratedAt: null,
+  checkInsEnabled: false,
+  nextCheckInOn: null,
+  lastPractisedAt: null,
+};
 
 class Repository implements TelegramRepository {
   claimed = new Set<number>();
@@ -42,7 +56,7 @@ class Repository implements TelegramRepository {
     chatId: number;
     promptMessageId: number;
     noteId: string;
-    intent: TelegramPracticeEntryIntent;
+    intent: TelegramPracticeReplyIntent;
   }> = [];
   inspections: number[] = [];
   replies: Array<{
@@ -50,8 +64,11 @@ class Repository implements TelegramRepository {
     text: string;
     sourceChannel: TelegramPracticeEntrySource;
   }> = [];
-  replyIntent: TelegramPracticeEntryIntent = 'reflection';
+  intervalReplies: Array<{ promptMessageId: number; intervalDays: number }> =
+    [];
+  replyIntent: TelegramPracticeReplyIntent = 'reflection';
   expiredPrompts = new Set<number>();
+  mutationError: ApiError | null = null;
 
   async claimUpdate(updateId: number): Promise<boolean> {
     if (this.claimed.has(updateId)) return false;
@@ -72,17 +89,19 @@ class Repository implements TelegramRepository {
   }
   async managePractice(
     userId: string,
-    action: 'activate' | 'reread',
+    action: TelegramPracticeAction,
     noteId: string,
-  ): Promise<void> {
+  ): Promise<PracticeState> {
+    if (this.mutationError) throw this.mutationError;
     this.mutations.push({ userId, action, noteId });
+    return PRACTICE_STATE;
   }
   async createReplyPrompt(
     userId: string,
     chatId: number,
     promptMessageId: number,
     noteId: string,
-    intent: TelegramPracticeEntryIntent,
+    intent: TelegramPracticeReplyIntent,
   ) {
     this.prompts.push({ userId, chatId, promptMessageId, noteId, intent });
   }
@@ -97,6 +116,18 @@ class Repository implements TelegramRepository {
     }
     return this.replyIntent;
   }
+  async consumeIntervalReply(
+    _userId: string,
+    _chatId: number,
+    promptMessageId: number,
+    intervalDays: number,
+  ) {
+    if (this.expiredPrompts.has(promptMessageId)) {
+      throw new ApiError(409, 'reply_expired', 'Synthetic expiry.');
+    }
+    this.intervalReplies.push({ promptMessageId, intervalDays });
+    return { ...PRACTICE_STATE, intervalDays };
+  }
   async consumePracticeReply(
     _userId: string,
     _chatId: number,
@@ -106,6 +137,9 @@ class Repository implements TelegramRepository {
   ) {
     if (this.expiredPrompts.has(promptMessageId)) {
       throw new ApiError(409, 'reply_expired', 'Synthetic expiry.');
+    }
+    if (this.replyIntent === 'interval') {
+      throw new Error('Interval prompts cannot create entries.');
     }
     this.replies.push({ promptMessageId, text, sourceChannel });
     return this.replyIntent;
@@ -291,6 +325,10 @@ describe('Telegram Practice cutover', () => {
     assert.equal(options.inlineKeyboard[1][0].callbackData, `p:e:r:${NOTE_ID}`);
     assert.equal(options.inlineKeyboard[1][1].callbackData, `p:e:s:${NOTE_ID}`);
     assert.ok(options.inlineKeyboard[1][1].callbackData.length <= 64);
+    assert.equal(options.inlineKeyboard[2][0].callbackData, `p:p:${NOTE_ID}`);
+    assert.equal(options.inlineKeyboard[2][1].callbackData, `p:i:${NOTE_ID}`);
+    assert.equal(options.inlineKeyboard[3][0].callbackData, `p:n:${NOTE_ID}`);
+    assert.ok(options.inlineKeyboard[3][0].callbackData.length <= 64);
   });
 
   it('routes a Practice reread callback through the owner-scoped service mutation', async () => {
@@ -321,6 +359,93 @@ describe('Telegram Practice cutover', () => {
       context.telegram.answers[0].text ?? '',
       /Story prompt opened/u,
     );
+  });
+
+  it('routes pause, integration, and monthly check-in callbacks idempotently', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    const actions = [
+      [`p:p:${NOTE_ID}`, 'pause'],
+      [`p:i:${NOTE_ID}`, 'integrate'],
+      [`p:u:${NOTE_ID}`, 'resume'],
+      [`p:c:${NOTE_ID}`, 'confirmIntegrated'],
+      [`p:x:${NOTE_ID}`, 'stopCheckIns'],
+    ] as const;
+    for (const [data, action] of actions) {
+      await context.handler(
+        request(callback(600 + context.repository.mutations.length, data)),
+      );
+      assert.equal(context.repository.mutations.at(-1)?.action, action);
+    }
+    context.repository.mutationError = new ApiError(
+      409,
+      'stale_action',
+      'Synthetic stale action.',
+    );
+    await context.handler(request(callback(699, `p:c:${NOTE_ID}`)));
+    assert.match(
+      context.telegram.answers.at(-1)?.text ?? '',
+      /already handled/u,
+    );
+    context.repository.mutationError = new ApiError(
+      409,
+      'practice_slots_full',
+      'Synthetic full slots.',
+    );
+    await context.handler(request(callback(700, `p:u:${NOTE_ID}`)));
+    assert.match(
+      context.telegram.answers.at(-1)?.text ?? '',
+      /three Practice slots/u,
+    );
+  });
+
+  it('opens, validates, and atomically consumes an interval text reply', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    await context.handler(request(callback(701, `p:n:${NOTE_ID}`)));
+    assert.match(context.telegram.forceReplies[0].text, /1 to 30/u);
+    assert.equal(context.repository.prompts[0].intent, 'interval');
+    context.repository.replyIntent = 'interval';
+    await context.handler(
+      request(
+        update(702, {
+          text: 'thirty',
+          reply_to_message: { message_id: 9901 },
+        }),
+      ),
+    );
+    assert.equal(context.repository.intervalReplies.length, 0);
+    assert.match(context.telegram.messages.at(-1)?.text ?? '', /still open/u);
+    await context.handler(
+      request(
+        update(703, {
+          text: '30',
+          reply_to_message: { message_id: 9901 },
+        }),
+      ),
+    );
+    assert.deepEqual(context.repository.intervalReplies, [
+      { promptMessageId: 9901, intervalDays: 30 },
+    ]);
+    assert.match(context.telegram.messages.at(-1)?.text ?? '', /30 days/u);
+  });
+
+  it('keeps interval voice replies unconsumed and performs no transcription', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    context.repository.replyIntent = 'interval';
+    await context.handler(
+      request(
+        update(704, {
+          reply_to_message: { message_id: 9901 },
+          voice: { file_id: 'interval-voice', duration: 3, file_size: 3 },
+        }),
+      ),
+    );
+    assert.equal(context.telegram.downloads, 0);
+    assert.equal(context.transcriber.calls, 0);
+    assert.equal(context.repository.intervalReplies.length, 0);
+    assert.match(context.telegram.messages[0].text, /must be text/u);
   });
 
   it('routes a text reply to the stored prompt instead of capture', async () => {

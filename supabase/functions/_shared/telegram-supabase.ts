@@ -9,11 +9,13 @@ import type {
 } from './types.ts';
 import type {
   TelegramPractice,
-  TelegramPracticeEntryIntent,
+  TelegramPracticeAction,
   TelegramPracticeEntrySource,
+  TelegramPracticeReplyIntent,
   TelegramRepository,
   TelegramSettings,
 } from './telegram-types.ts';
+import type { PracticeState } from './contracts.ts';
 
 function databaseFailure(message: string): ApiError {
   return new ApiError(500, 'internal_error', message, true);
@@ -27,6 +29,51 @@ function replyFailure(error: { message: string } | null): ApiError {
         'That Practice reply prompt has expired.',
       )
     : databaseFailure('Practice reply could not be processed.');
+}
+
+function practiceFailure(error: { message: string } | null): ApiError {
+  const code = error?.message.match(
+    /(practice_slots_full|practice_not_found|invalid_transition|stale_action)/u,
+  )?.[1];
+  if (code === 'practice_slots_full') {
+    return new ApiError(409, code, 'All three Practice slots are in use.');
+  }
+  if (code === 'practice_not_found') {
+    return new ApiError(404, code, 'That Practice was not found.');
+  }
+  if (code === 'invalid_transition') {
+    return new ApiError(409, code, 'That Practice action is unavailable.');
+  }
+  if (code === 'stale_action') {
+    return new ApiError(409, code, 'That Practice action was already handled.');
+  }
+  return databaseFailure('Practice could not be updated.');
+}
+
+function practiceState(row: {
+  note_id: string;
+  status: PracticeState['status'];
+  interval_days: number;
+  next_due_on: string | null;
+  paused_until: string | null;
+  ready_to_resume: boolean;
+  integrated_at: string | null;
+  check_ins_enabled: boolean;
+  next_check_in_on: string | null;
+  last_practised_at: string | null;
+}): PracticeState {
+  return {
+    noteId: row.note_id,
+    status: row.status,
+    intervalDays: row.interval_days,
+    nextDueOn: row.next_due_on,
+    pausedUntil: row.paused_until,
+    readyToResume: row.ready_to_resume,
+    integratedAt: row.integrated_at,
+    checkInsEnabled: row.check_ins_enabled,
+    nextCheckInOn: row.next_check_in_on,
+    lastPractisedAt: row.last_practised_at,
+  };
 }
 
 export class SupabaseTelegramRepository implements TelegramRepository {
@@ -134,15 +181,18 @@ export class SupabaseTelegramRepository implements TelegramRepository {
 
   async managePractice(
     userId: string,
-    action: 'activate' | 'reread',
+    action: TelegramPracticeAction,
     noteId: string,
-  ): Promise<void> {
-    const { error } = await this.client.rpc('manage_practice_for_user', {
+  ): Promise<PracticeState> {
+    const { data, error } = await this.client.rpc('manage_practice_for_user', {
       input_user_id: userId,
       input_action: action,
       input_note_id: noteId,
     });
-    if (error) throw databaseFailure('Practice could not be updated.');
+    if (error) throw practiceFailure(error);
+    const row = data?.[0];
+    if (!row) throw databaseFailure('Practice result is missing.');
+    return practiceState(row);
   }
 
   async createReplyPrompt(
@@ -150,7 +200,7 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     chatId: number,
     promptMessageId: number,
     noteId: string,
-    intent: TelegramPracticeEntryIntent,
+    intent: TelegramPracticeReplyIntent,
   ): Promise<void> {
     const { error } = await this.client.rpc('create_telegram_reply_prompt', {
       input_user_id: userId,
@@ -167,7 +217,7 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     userId: string,
     chatId: number,
     promptMessageId: number,
-  ): Promise<TelegramPracticeEntryIntent> {
+  ): Promise<TelegramPracticeReplyIntent> {
     const { data, error } = await this.client.rpc(
       'inspect_telegram_reply_prompt',
       {
@@ -177,7 +227,7 @@ export class SupabaseTelegramRepository implements TelegramRepository {
       },
     );
     if (error) throw replyFailure(error);
-    if (data !== 'reflection' && data !== 'story') {
+    if (data !== 'reflection' && data !== 'story' && data !== 'interval') {
       throw databaseFailure('Practice reply prompt is invalid.');
     }
     return data;
@@ -189,7 +239,7 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     promptMessageId: number,
     text: string,
     sourceChannel: TelegramPracticeEntrySource,
-  ): Promise<TelegramPracticeEntryIntent> {
+  ): Promise<'reflection' | 'story'> {
     const { data, error } = await this.client.rpc(
       'consume_telegram_practice_reply',
       {
@@ -204,6 +254,30 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     if (error) throw replyFailure(error);
     if (!row) throw databaseFailure('Practice reply result is missing.');
     return row.entry_kind;
+  }
+
+  async consumeIntervalReply(
+    userId: string,
+    chatId: number,
+    promptMessageId: number,
+    intervalDays: number,
+  ): Promise<PracticeState> {
+    const { data, error } = await this.client.rpc(
+      'consume_telegram_interval_reply',
+      {
+        input_user_id: userId,
+        input_chat_id: chatId,
+        input_prompt_message_id: promptMessageId,
+        input_interval_days: intervalDays,
+      },
+    );
+    if (error) {
+      if (error.message.includes('reply_expired')) throw replyFailure(error);
+      throw practiceFailure(error);
+    }
+    const row = data?.[0];
+    if (!row) throw databaseFailure('Practice interval result is missing.');
+    return practiceState(row);
   }
 }
 

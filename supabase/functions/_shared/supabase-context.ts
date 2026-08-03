@@ -11,8 +11,8 @@ import type {
   StoredCapture,
 } from './types.ts';
 import type {
+  PracticeLifecycleRequest,
   PracticeRepository,
-  SupportedPracticeAction,
 } from './practice-types.ts';
 import type { PracticeEntry, PracticeState } from './contracts.ts';
 
@@ -137,17 +137,22 @@ export class SupabaseRequestContext
   }
 
   async managePractice(
-    action: SupportedPracticeAction,
-    noteId: string,
+    request: PracticeLifecycleRequest,
   ): Promise<PracticeState> {
     const client = this.authenticatedClient();
     const { data, error } = await client.rpc('manage_practice', {
-      input_action: action,
-      input_note_id: noteId,
+      input_action: request.action,
+      input_note_id: request.noteId,
+      ...(request.action === 'setInterval'
+        ? { input_interval_days: request.intervalDays }
+        : {}),
+      ...(request.action === 'pause' && request.resumeOn
+        ? { input_resume_on: request.resumeOn }
+        : {}),
     });
     if (error) {
       const code = error.message.match(
-        /(practice_slots_full|practice_not_found|invalid_transition)/u,
+        /(practice_slots_full|practice_not_found|invalid_transition|stale_action)/u,
       )?.[1];
       if (code === 'practice_slots_full') {
         throw new ApiError(409, code, 'All three Practice slots are in use.');
@@ -157,6 +162,13 @@ export class SupabaseRequestContext
       }
       if (code === 'invalid_transition') {
         throw new ApiError(409, code, 'That Practice action is not available.');
+      }
+      if (code === 'stale_action') {
+        throw new ApiError(
+          409,
+          code,
+          'That Practice action is no longer current.',
+        );
       }
       throw new ApiError(
         500,

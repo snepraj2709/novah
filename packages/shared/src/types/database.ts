@@ -13,6 +13,10 @@ type GeneratedCaptureNoteAtomicForUser =
   GeneratedPublicSchema['Functions']['capture_note_atomic_for_user'];
 type GeneratedClaimDuePractices =
   GeneratedPublicSchema['Functions']['claim_due_practices'];
+type GeneratedClaimDueCheckIns =
+  GeneratedPublicSchema['Functions']['claim_due_check_ins'];
+type GeneratedClaimReadyPractices =
+  GeneratedPublicSchema['Functions']['claim_ready_practices'];
 type GeneratedAddPracticeEntry =
   GeneratedPublicSchema['Functions']['add_practice_entry'];
 type GeneratedAddPracticeEntryCore =
@@ -21,18 +25,14 @@ type GeneratedAddPracticeEntryForUser =
   GeneratedPublicSchema['Functions']['add_practice_entry_for_user'];
 type GeneratedConsumeTelegramPracticeReply =
   GeneratedPublicSchema['Functions']['consume_telegram_practice_reply'];
+type GeneratedConsumeTelegramIntervalReply =
+  GeneratedPublicSchema['Functions']['consume_telegram_interval_reply'];
 type GeneratedManagePractice =
   GeneratedPublicSchema['Functions']['manage_practice'];
 type GeneratedManagePracticeCore =
   GeneratedPublicSchema['Functions']['manage_practice_core'];
 type GeneratedManagePracticeForUser =
   GeneratedPublicSchema['Functions']['manage_practice_for_user'];
-type GeneratedNotificationDigestNotes =
-  GeneratedPublicSchema['Functions']['notification_digest_notes'];
-type GeneratedClaimDueReviews =
-  GeneratedPublicSchema['Functions']['claim_due_reviews'];
-type GeneratedRevealReview =
-  GeneratedPublicSchema['Functions']['reveal_review_for_user'];
 
 /**
  * Supabase cannot infer nullability for individual `returns table` columns.
@@ -125,8 +125,11 @@ type CorrectedFunctions = Omit<
   | 'add_practice_entry_for_user'
   | 'capture_note_atomic'
   | 'capture_note_atomic_for_user'
+  | 'claim_due_check_ins'
   | 'claim_due_practices'
   | 'claim_due_reviews'
+  | 'claim_ready_practices'
+  | 'consume_telegram_interval_reply'
   | 'consume_telegram_practice_reply'
   | 'manage_practice'
   | 'manage_practice_core'
@@ -174,15 +177,26 @@ type CorrectedFunctions = Omit<
       }
     >;
   };
-  claim_due_reviews: Omit<GeneratedClaimDueReviews, 'Returns'> & {
+  claim_due_check_ins: Omit<GeneratedClaimDueCheckIns, 'Returns'> & {
     Returns: Array<
-      Omit<
-        GeneratedClaimDueReviews['Returns'][number],
-        'recall_prompt' | 'source_title'
-      > & {
-        recall_prompt: string | null;
+      Omit<GeneratedClaimDueCheckIns['Returns'][number], 'source_title'> & {
         source_title: string | null;
       }
+    >;
+  };
+  claim_ready_practices: Omit<GeneratedClaimReadyPractices, 'Returns'> & {
+    Returns: Array<
+      Omit<GeneratedClaimReadyPractices['Returns'][number], 'source_title'> & {
+        source_title: string | null;
+      }
+    >;
+  };
+  consume_telegram_interval_reply: Omit<
+    GeneratedConsumeTelegramIntervalReply,
+    'Returns'
+  > & {
+    Returns: CorrectedPracticeReturns<
+      GeneratedConsumeTelegramIntervalReply['Returns']
     >;
   };
   consume_telegram_practice_reply: Omit<
@@ -208,34 +222,6 @@ type CorrectedFunctions = Omit<
   manage_practice_for_user: Omit<GeneratedManagePracticeForUser, 'Returns'> & {
     Returns: CorrectedPracticeReturns<
       GeneratedManagePracticeForUser['Returns']
-    >;
-  };
-  notification_digest_notes: Omit<
-    GeneratedNotificationDigestNotes,
-    'Returns'
-  > & {
-    Returns: Array<
-      Omit<
-        GeneratedNotificationDigestNotes['Returns'][number],
-        | 'personal_context'
-        | 'recall_prompt'
-        | 'source_title'
-        | 'source_url'
-        | 'summary'
-      > & {
-        personal_context: string | null;
-        recall_prompt: string | null;
-        source_title: string | null;
-        source_url: string | null;
-        summary: string | null;
-      }
-    >;
-  };
-  reveal_review_for_user: Omit<GeneratedRevealReview, 'Returns'> & {
-    Returns: Array<
-      Omit<GeneratedRevealReview['Returns'][number], 'source_title'> & {
-        source_title: string | null;
-      }
     >;
   };
 };

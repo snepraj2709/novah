@@ -5,6 +5,7 @@ import {
   managePracticeRequestSchema,
   managePracticeResponseSchema,
   type PracticeEntry,
+  type ManagePracticeRequest,
   type PracticeState,
 } from '../_shared/contracts.ts';
 import { ApiError } from '../_shared/errors.ts';
@@ -47,10 +48,12 @@ function request(body: unknown, origin?: string): Request {
 }
 
 class Repository implements PracticeRepository {
-  calls: Array<{ action: string; noteId: string }> = [];
+  calls: Array<Exclude<ManagePracticeRequest, { action: 'addEntry' }>> = [];
   entries: Array<{ noteId: string; entryKind: string; text: string }> = [];
-  async managePractice(action: 'activate' | 'reread', noteId: string) {
-    this.calls.push({ action, noteId });
+  async managePractice(
+    request: Exclude<ManagePracticeRequest, { action: 'addEntry' }>,
+  ) {
+    this.calls.push(request);
     return PRACTICE;
   }
   async addEntry(
@@ -155,35 +158,47 @@ describe('manage-practice contract', () => {
     assert.equal(repository.entries.length, 0);
   });
 
-  it('returns the strict current-state response for activation and reread', async () => {
+  it('returns the strict current-state response for every lifecycle action', async () => {
     const repository = new Repository();
-    for (const action of ['activate', 'reread'] as const) {
-      const response = await handleManagePractice(
-        request({ action, noteId: NOTE_ID }),
-        { authenticator, repository },
-      );
+    const requests = [
+      { action: 'activate', noteId: NOTE_ID },
+      { action: 'reread', noteId: NOTE_ID },
+      { action: 'setInterval', noteId: NOTE_ID, intervalDays: 12 },
+      { action: 'pause', noteId: NOTE_ID },
+      { action: 'pause', noteId: NOTE_ID, resumeOn: '2026-08-20' },
+      { action: 'resume', noteId: NOTE_ID },
+      { action: 'integrate', noteId: NOTE_ID },
+      { action: 'confirmIntegrated', noteId: NOTE_ID },
+      { action: 'stopCheckIns', noteId: NOTE_ID },
+    ] satisfies Array<Exclude<ManagePracticeRequest, { action: 'addEntry' }>>;
+    for (const lifecycleRequest of requests) {
+      const response = await handleManagePractice(request(lifecycleRequest), {
+        authenticator,
+        repository,
+      });
       assert.equal(response.status, 200);
       assert.equal(
         managePracticeResponseSchema.safeParse(await response.json()).success,
         true,
       );
     }
-    assert.deepEqual(repository.calls, [
-      { action: 'activate', noteId: NOTE_ID },
-      { action: 'reread', noteId: NOTE_ID },
-    ]);
+    assert.deepEqual(repository.calls, requests);
   });
 
-  it('rejects Phase 3 actions without calling the repository', async () => {
+  it('rejects malformed lifecycle requests without calling the repository', async () => {
     const repository = new Repository();
     await assert.rejects(
       () =>
-        handleManagePractice(request({ action: 'pause', noteId: NOTE_ID }), {
-          authenticator,
-          repository,
-        }),
+        handleManagePractice(
+          request({
+            action: 'pause',
+            noteId: NOTE_ID,
+            resumeOn: '08/20/2026',
+          }),
+          { authenticator, repository },
+        ),
       (error: unknown) =>
-        error instanceof ApiError && error.code === 'invalid_transition',
+        error instanceof ApiError && error.code === 'bad_request',
     );
     assert.equal(repository.calls.length, 0);
   });

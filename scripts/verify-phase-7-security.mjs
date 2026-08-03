@@ -47,7 +47,7 @@ function walk(directory) {
 function textFiles() {
   return [
     ...new Set([
-      ...trackedFiles(),
+      ...trackedFiles().filter((path) => existsSync(join(root, path))),
       ...walk(join(root, 'apps/web/dist')),
       ...walk(join(root, 'apps/extension/.output')),
     ]),

@@ -54,6 +54,13 @@ create index note_practices_check_in_due_idx
   on public.note_practices (user_id, next_check_in_on, note_id)
   where status = 'integrated' and check_ins_enabled;
 
+-- Application roles mutate lifecycle state and append events only through the
+-- owner-scoped security-definer functions below.
+revoke insert, update, delete, truncate on table public.note_practices
+from service_role;
+revoke insert, update, delete, truncate on table public.practice_events
+from service_role;
+
 drop function public.manage_practice_core(uuid, text, uuid, timestamptz);
 
 create function public.manage_practice_core(
@@ -790,8 +797,28 @@ begin
   if input_note_ids is null
     or cardinality(input_note_ids) = 0
     or cardinality(input_note_ids) <> (
-      select count(distinct note_id) from unnest(input_note_ids) as note_id
+      select count(distinct item.note_id)
+      from unnest(input_note_ids) as item(note_id)
     ) then
+    return false;
+  end if;
+
+  perform 1
+  from public.note_practices as practice
+  where practice.user_id = input_user_id
+    and practice.note_id = any(input_note_ids)
+  order by practice.note_id
+  for update;
+
+  if (
+    select count(*)
+    from public.note_practices as practice
+    where practice.user_id = input_user_id
+      and practice.note_id = any(input_note_ids)
+      and practice.status = 'integrated'
+      and practice.check_ins_enabled
+      and practice.check_in_notification_claimed_at is not null
+  ) <> cardinality(input_note_ids) then
     return false;
   end if;
 
@@ -897,7 +924,7 @@ begin
   if (select auth.role()) <> 'service_role' then
     raise insufficient_privilege using message = 'Service role required';
   end if;
-  if input_interval_days not between 1 and 30 then
+  if input_interval_days is null or input_interval_days not between 1 and 30 then
     raise check_violation using message = 'invalid_transition';
   end if;
 
