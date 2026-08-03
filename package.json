@@ -27,6 +27,7 @@
     "test:security": "node scripts/verify-phase-7-security.mjs",
     "test:phase8:config": "node scripts/verify-phase-8-config.mjs",
     "test:phase8:production-status": "node scripts/verify-phase-8-production-status.mjs",
+    "test:phase9:package": "node scripts/verify-phase-9-package.mjs",
     "phase8:smoke:create": "node scripts/manage-phase-8-smoke.mjs create",
     "phase8:smoke:status": "node scripts/manage-phase-8-smoke.mjs status",
     "phase8:smoke:telegram:prepare": "node scripts/manage-phase-8-smoke.mjs telegram-prepare",

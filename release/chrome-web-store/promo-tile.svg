@@ -1,0 +1,63 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="440"
+  height="440"
+  viewBox="0 0 440 440"
+>
+  <g transform="translate(0 80)">
+    <rect width="440" height="280" rx="28" fill="#170f24" />
+    <circle cx="86" cy="80" r="48" fill="#26183b" />
+    <path
+      fill="#9b5cff"
+      d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"
+      transform="translate(50 43) scale(1.5)"
+    />
+    <text
+      x="150"
+      y="82"
+      fill="#ffffff"
+      font-family="Arial, sans-serif"
+      font-size="36"
+      font-weight="700"
+    >
+      Novah
+    </text>
+    <text
+      x="150"
+      y="112"
+      fill="#cabce0"
+      font-family="Arial, sans-serif"
+      font-size="16"
+    >
+      Your ideas, returned when they matter.
+    </text>
+    <rect
+      x="32"
+      y="164"
+      width="376"
+      height="76"
+      rx="18"
+      fill="#211631"
+      stroke="#3a2853"
+    />
+    <text
+      x="54"
+      y="194"
+      fill="#ffffff"
+      font-family="Arial, sans-serif"
+      font-size="17"
+      font-weight="700"
+    >
+      Capture from any page
+    </text>
+    <text
+      x="54"
+      y="220"
+      fill="#cabce0"
+      font-family="Arial, sans-serif"
+      font-size="14"
+    >
+      Save selected text. Recall it by meaning.
+    </text>
+  </g>
+</svg>

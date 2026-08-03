@@ -21,4 +21,4 @@ export function getPublicExtensionConfig(): PublicExtensionConfig {
   return { supabaseUrl, supabasePublishableKey };
 }
 
-export const EXPECTED_EXTENSION_ID = 'mgjpgplhhbhlakjiaikaniaadapgofjd';
+export const EXPECTED_EXTENSION_ID = 'illdnfhcgdhkgbifepbejobplgikmmlp';

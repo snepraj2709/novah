@@ -16,5 +16,10 @@ pnpm --filter extension build
 
 Load `apps/extension/.output/chrome-mv3` through Chrome's **Load unpacked**
 control after a production build. The committed public manifest key gives the
-unpacked build the stable ID `mgjpgplhhbhlakjiaikaniaadapgofjd`; that ID must
+unpacked build the stable ID `illdnfhcgdhkgbifepbejobplgikmmlp`; that ID must
 be present in the server-side extension-origin allowlist.
+
+`pnpm --filter extension zip` uses the dedicated `store` build mode and omits
+the development-only manifest `key`, as required for a new Chrome Web Store
+item. After the first upload, replace the development public key and expected
+ID with the values assigned by the Store before the final clean-profile test.

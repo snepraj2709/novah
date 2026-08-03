@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 const EXPECTED_PROJECT_REF = 'fqinppulljqefbvukcpg';
 const EXPECTED_PROJECT_URL = `https://${EXPECTED_PROJECT_REF}.supabase.co`;
-const EXPECTED_EXTENSION_ID = 'mgjpgplhhbhlakjiaikaniaadapgofjd';
+const EXPECTED_EXTENSION_ID = 'illdnfhcgdhkgbifepbejobplgikmmlp';
 const PUBLIC_BROWSER_ENV = new Set([
   'VITE_SUPABASE_PUBLISHABLE_KEY',
   'VITE_SUPABASE_URL',
@@ -144,7 +145,22 @@ assert.match(functionEnvironment, /Deno\.env\.get\('ALLOWED_EXTENSION_IDS'\)/u);
 assert(webConfig.includes(EXPECTED_PROJECT_URL));
 assert(extensionConfig.includes(EXPECTED_PROJECT_URL));
 assert(extensionConfig.includes(EXPECTED_EXTENSION_ID));
-assert.match(extensionWxtConfig, /manifest:\s*\{[\s\S]*?key:\s*'[^']+'/u);
+const publicKeyMatch = extensionWxtConfig.match(
+  /const developmentExtensionPublicKey\s*=\s*'([^']+)'/u,
+);
+assert(publicKeyMatch, 'development extension public key is missing');
+const publicKeyHash = createHash('sha256')
+  .update(Buffer.from(publicKeyMatch[1], 'base64'))
+  .digest('hex')
+  .slice(0, 32);
+const derivedExtensionId = [...publicKeyHash]
+  .map((character) => String.fromCharCode(97 + Number.parseInt(character, 16)))
+  .join('');
+assert.equal(derivedExtensionId, EXPECTED_EXTENSION_ID);
+assert.match(
+  extensionWxtConfig,
+  /mode === 'store' \? \{\} : \{ key: developmentExtensionPublicKey \}/u,
+);
 
 for (const key of PUBLIC_BROWSER_ENV) {
   assert(runbook.includes(key), `Runbook is missing ${key}`);

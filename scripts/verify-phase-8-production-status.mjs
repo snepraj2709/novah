@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const EXPECTED_PROJECT_REF = 'fqinppulljqefbvukcpg';
 const EXPECTED_PROJECT_URL = `https://${EXPECTED_PROJECT_REF}.supabase.co`;
-const EXPECTED_EXTENSION_ID = 'mgjpgplhhbhlakjiaikaniaadapgofjd';
+const EXPECTED_EXTENSION_ID = 'illdnfhcgdhkgbifepbejobplgikmmlp';
 const EXPECTED_FUNCTION_AUTH = new Map([
   ['capture-note', true],
   ['delete-account', true],

@@ -74,7 +74,7 @@ pnpm --filter extension build
 The production build is written to
 `apps/extension/.output/chrome-mv3`. Load that directory through
 `chrome://extensions` with Developer mode enabled. The committed public
-manifest key produces extension ID `mgjpgplhhbhlakjiaikaniaadapgofjd` so the
+manifest key produces extension ID `illdnfhcgdhkgbifepbejobplgikmmlp` so the
 server can use an explicit CORS allowlist rather than a wildcard.
 
 Before hosted extension verification, confirm `ALLOWED_EXTENSION_IDS` contains

@@ -9,3 +9,8 @@ node_modules/
 .novah-private/
 .vercel
 .env*.local
+
+# Reproducible Chrome Web Store upload packages stay local.
+release/chrome-web-store/*.zip
+release/chrome-web-store/*-unpacked/
+release/chrome-web-store/screenshots/raw/
