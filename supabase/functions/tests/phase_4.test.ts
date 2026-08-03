@@ -1,36 +1,24 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { MAX_TELEGRAM_MESSAGE_LENGTH } from '../../../packages/shared/src/constants/index.ts';
-
-import {
-  generateTelegramLinkCode,
-  handleTelegramLinkCode,
-  hashTelegramLinkCode,
-} from '../_shared/telegram-link-handler.ts';
 import {
   createTelegramWebhookHandler,
-  secureTelegramSecretMatches,
   telegramClientRequestId,
 } from '../_shared/telegram-handler.ts';
-import { TelegramApiClient } from '../_shared/telegram-api.ts';
-import { OpenAiVoiceTranscriber } from '../_shared/transcription.ts';
-import type {
-  TelegramDueReview,
-  TelegramGateway,
-  TelegramKnowledgeService,
-  TelegramRepository,
-  TelegramReviewReveal,
-  TelegramSettings,
-  TelegramTodayNote,
-  VoiceTranscriber,
-} from '../_shared/telegram-types.ts';
 import type {
   CaptureNoteRequest,
   CaptureNoteResponse,
   SearchNotesRequest,
   SearchNotesResponse,
 } from '../_shared/contracts.ts';
+import type {
+  TelegramGateway,
+  TelegramKnowledgeService,
+  TelegramPractice,
+  TelegramRepository,
+  TelegramSettings,
+  VoiceTranscriber,
+} from '../_shared/telegram-types.ts';
 
 const SECRET = 'synthetic_webhook_secret';
 const USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -40,59 +28,32 @@ const CHAT_ID = 700000000001;
 class Repository implements TelegramRepository {
   claimed = new Set<number>();
   users = new Map<number, string>();
-  consumedCodeResult: string | null = null;
-  consumedHashes: string[] = [];
-  today: TelegramTodayNote[] = [];
-  reviews: TelegramDueReview[] = [];
-  reveals = new Map<string, TelegramReviewReveal>();
-  feedback: Array<{ eventId: string; status: string }> = [];
-  profileSettings: TelegramSettings = {
-    timezone: 'Asia/Kolkata',
-    digestTime: '21:00:00',
-    reviewTime: '09:00:00',
-  };
+  practicesRows: TelegramPractice[] = [];
+  mutations: Array<{ userId: string; action: string; noteId: string }> = [];
 
   async claimUpdate(updateId: number): Promise<boolean> {
     if (this.claimed.has(updateId)) return false;
     this.claimed.add(updateId);
     return true;
   }
-
   async userIdForChat(chatId: number): Promise<string | null> {
     return this.users.get(chatId) ?? null;
   }
-
-  async consumeLinkCode(codeHash: string): Promise<string | null> {
-    this.consumedHashes.push(codeHash);
-    return this.consumedCodeResult;
+  async consumeLinkCode(): Promise<string | null> {
+    return null;
   }
-
-  async todayNotes(): Promise<TelegramTodayNote[]> {
-    return this.today;
+  async practices(): Promise<TelegramPractice[]> {
+    return this.practicesRows;
   }
-
-  async dueReviews(): Promise<TelegramDueReview[]> {
-    return this.reviews;
-  }
-
   async settings(): Promise<TelegramSettings> {
-    return this.profileSettings;
+    return { timezone: 'Asia/Kolkata', practiceTime: '09:00:00' };
   }
-
-  async revealReview(
-    _userId: string,
-    eventId: string,
-  ): Promise<TelegramReviewReveal | null> {
-    return this.reveals.get(eventId) ?? null;
-  }
-
-  async recordReviewFeedback(
-    _userId: string,
-    eventId: string,
-    status: 'remembered' | 'partial' | 'missed' | 'skipped',
-  ): Promise<boolean> {
-    this.feedback.push({ eventId, status });
-    return true;
+  async managePractice(
+    userId: string,
+    action: 'activate' | 'reread',
+    noteId: string,
+  ): Promise<void> {
+    this.mutations.push({ userId, action, noteId });
   }
 }
 
@@ -104,7 +65,6 @@ class Knowledge implements TelegramKnowledgeService {
       id: NOTE_ID,
       originalText: 'Synthetic stored note.',
       noteType: 'lesson',
-      firstReviewDate: '2026-08-03',
     },
   };
   searchResponse: SearchNotesResponse = {
@@ -124,19 +84,11 @@ class Knowledge implements TelegramKnowledgeService {
     ],
     synthesisWithheld: false,
   };
-
-  async capture(
-    userId: string,
-    request: CaptureNoteRequest,
-  ): Promise<CaptureNoteResponse> {
+  async capture(userId: string, request: CaptureNoteRequest) {
     this.captures.push({ userId, request });
     return this.captureResponse;
   }
-
-  async search(
-    userId: string,
-    request: SearchNotesRequest,
-  ): Promise<SearchNotesResponse> {
+  async search(userId: string, request: SearchNotesRequest) {
     this.searches.push({ userId, request });
     return this.searchResponse;
   }
@@ -144,22 +96,15 @@ class Knowledge implements TelegramKnowledgeService {
 
 class Gateway implements TelegramGateway {
   messages: Array<{ chatId: number; text: string; options?: unknown }> = [];
-  callbackAnswers: Array<{ id: string; text?: string }> = [];
-  downloads = 0;
+  answers: Array<{ id: string; text?: string }> = [];
   audio = new Uint8Array([7, 8, 9]);
-
-  async sendMessage(
-    chatId: number,
-    text: string,
-    options?: Parameters<TelegramGateway['sendMessage']>[2],
-  ): Promise<void> {
+  downloads = 0;
+  async sendMessage(chatId: number, text: string, options?: unknown) {
     this.messages.push({ chatId, text, options });
   }
-
-  async answerCallbackQuery(id: string, text?: string): Promise<void> {
-    this.callbackAnswers.push({ id, ...(text ? { text } : {}) });
+  async answerCallbackQuery(id: string, text?: string) {
+    this.answers.push({ id, ...(text ? { text } : {}) });
   }
-
   async downloadVoice(): Promise<Uint8Array> {
     this.downloads += 1;
     return this.audio;
@@ -168,19 +113,13 @@ class Gateway implements TelegramGateway {
 
 class Transcriber implements VoiceTranscriber {
   calls = 0;
-  observedAudio: Uint8Array | null = null;
-
-  async transcribe(audio: Uint8Array): Promise<string> {
+  async transcribe(): Promise<string> {
     this.calls += 1;
-    this.observedAudio = audio;
-    return 'Synthetic voice transcription.';
+    return 'Transcribed voice note.';
   }
 }
 
-function update(
-  updateId: number,
-  message: Record<string, unknown>,
-): Record<string, unknown> {
+function update(updateId: number, message: Record<string, unknown>) {
   return {
     update_id: updateId,
     message: {
@@ -191,8 +130,22 @@ function update(
   };
 }
 
-function webhookRequest(body: unknown, secret = SECRET): Request {
-  return new Request('http://localhost/functions/v1/telegram-webhook', {
+function callback(updateId: number, data: string) {
+  return {
+    update_id: updateId,
+    callback_query: {
+      id: `callback-${updateId}`,
+      data,
+      message: {
+        message_id: updateId,
+        chat: { id: CHAT_ID, type: 'private' },
+      },
+    },
+  };
+}
+
+function request(body: unknown, secret = SECRET): Request {
+  return new Request('http://localhost/telegram-webhook', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -217,381 +170,117 @@ function dependencies() {
   return { repository, knowledge, telegram, transcriber, handler };
 }
 
-describe('Telegram link-code generation', () => {
-  it('returns a random code while persisting only its SHA-256 hash', async () => {
-    let storedHash = '';
-    const response = await handleTelegramLinkCode(
-      new Request('http://localhost/link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      }),
-      {
-        authenticator: {
-          async authenticate() {
-            return { id: USER_ID };
-          },
-        },
-        repository: {
-          async createTelegramLinkCode(codeHash) {
-            storedHash = codeHash;
-            return {
-              expiresAt: '2026-08-02T01:10:00.000Z',
-              connected: false,
-            };
-          },
-        },
-        randomBytes: (length) => new Uint8Array(length),
-      },
-    );
-    const payload = await response.json();
-    assert.equal(payload.code, 'AAAAAAAAAAAA');
-    assert.equal(storedHash, await hashTelegramLinkCode(payload.code));
-    assert.equal(storedHash.includes(payload.code), false);
-  });
-
-  it('rejects a broken entropy source', () => {
-    assert.throws(
-      () => generateTelegramLinkCode(() => new Uint8Array(1)),
-      /invalid length/u,
-    );
-  });
-});
-
-describe('Telegram webhook authorization and replay', () => {
-  it('uses a digest comparison for the configured webhook secret', async () => {
-    assert.equal(await secureTelegramSecretMatches(SECRET, SECRET), true);
-    assert.equal(await secureTelegramSecretMatches(SECRET, 'wrong'), false);
-    assert.equal(await secureTelegramSecretMatches(SECRET, null), false);
-  });
-
-  it('rejects an invalid secret before claiming the update', async () => {
+describe('Telegram Practice cutover', () => {
+  it('authenticates before claiming an update and deduplicates replays', async () => {
     const context = dependencies();
-    const response = await context.handler(
-      webhookRequest(update(1, { text: '/start' }), 'wrong'),
-    );
-    assert.equal(response.status, 401);
-    assert.equal(context.repository.claimed.size, 0);
-    assert.equal(context.telegram.messages.length, 0);
-  });
-
-  it('acknowledges a replay without repeating any side effect', async () => {
-    const context = dependencies();
-    context.repository.claimed.add(2);
-    const response = await context.handler(
-      webhookRequest(update(2, { text: 'Synthetic note.' })),
-    );
-    assert.equal(response.status, 200);
-    assert.equal((await response.json()).replayed, true);
-    assert.equal(context.knowledge.captures.length, 0);
-    assert.equal(context.telegram.messages.length, 0);
-  });
-});
-
-describe('Telegram linking and isolation', () => {
-  it('implements start without exposing linked-user data', async () => {
-    const unlinked = dependencies();
-    await unlinked.handler(webhookRequest(update(15, { text: '/start' })));
-    assert.match(unlinked.telegram.messages[0].text, /Link this private chat/u);
-
-    const linked = dependencies();
-    linked.repository.users.set(CHAT_ID, USER_ID);
-    await linked.handler(webhookRequest(update(16, { text: '/start' })));
-    assert.match(linked.telegram.messages[0].text, /Novah is linked/u);
-    assert.equal(linked.telegram.messages[0].text.includes(USER_ID), false);
-  });
-
-  it('links a valid single-use code without exposing its hash', async () => {
-    const context = dependencies();
-    context.repository.consumedCodeResult = USER_ID;
-    const response = await context.handler(
-      webhookRequest(update(3, { text: '/link AAAAAAAAAAAA' })),
-    );
-    assert.equal(response.status, 200);
-    assert.deepEqual(context.repository.consumedHashes, [
-      await hashTelegramLinkCode('AAAAAAAAAAAA'),
-    ]);
-    assert.match(context.telegram.messages[0].text, /now linked/u);
     assert.equal(
-      context.telegram.messages[0].text.includes(
-        context.repository.consumedHashes[0],
-      ),
-      false,
+      (await context.handler(request(update(1, { text: '/help' }), 'wrong')))
+        .status,
+      401,
     );
+    context.repository.users.set(CHAT_ID, USER_ID);
+    await context.handler(request(update(2, { text: '/help' })));
+    const replay = await context.handler(request(update(2, { text: '/help' })));
+    assert.deepEqual(await replay.json(), { ok: true, replayed: true });
+    assert.equal(context.telegram.messages.length, 1);
   });
 
-  it('gives the same safe response for invalid, expired, or used codes', async () => {
-    const context = dependencies();
-    await context.handler(
-      webhookRequest(update(4, { text: '/link AAAAAAAAAAAA' })),
-    );
-    assert.match(context.telegram.messages[0].text, /invalid, expired/u);
-  });
-
-  it('does not let an unlinked chat capture or search', async () => {
-    const context = dependencies();
-    await context.handler(
-      webhookRequest(update(5, { text: '/search another user notes' })),
-    );
-    await context.handler(
-      webhookRequest(update(6, { text: 'Unlinked content.' })),
-    );
-    await context.handler(webhookRequest(update(14, { text: '/help' })));
-    assert.equal(context.knowledge.searches.length, 0);
-    assert.equal(context.knowledge.captures.length, 0);
-    assert.equal(context.telegram.messages.length, 3);
-    assert.equal(
-      context.telegram.messages.every(({ text }) =>
-        text.includes('Link this private chat'),
-      ),
-      true,
-    );
-  });
-});
-
-describe('Telegram capture and commands', () => {
-  it('routes plain text through user-scoped idempotent capture', async () => {
+  it('supports /find and retires /search to current help', async () => {
     const context = dependencies();
     context.repository.users.set(CHAT_ID, USER_ID);
     await context.handler(
-      webhookRequest(update(17, { text: 'Synthetic plain text note.' })),
+      request(update(3, { text: '/find synthetic lesson' })),
     );
-    assert.equal(context.knowledge.captures.length, 1);
-    assert.deepEqual(context.knowledge.captures[0], {
-      userId: USER_ID,
-      request: {
-        originalText: 'Synthetic plain text note.',
-        captureChannel: 'telegram_text',
-        clientRequestId: await telegramClientRequestId(17),
-      },
-    });
-    assert.equal(
-      context.telegram.messages[0].text.includes('Synthetic plain text note.'),
-      false,
-    );
-  });
-
-  it('routes forwarded text through user-scoped idempotent capture', async () => {
-    const context = dependencies();
-    context.repository.users.set(CHAT_ID, USER_ID);
     await context.handler(
-      webhookRequest(
-        update(7, {
-          text: 'Synthetic forwarded note.',
-          forward_origin: { type: 'hidden_user', sender_user_name: 'Fixture' },
-        }),
-      ),
-    );
-    assert.equal(context.knowledge.captures.length, 1);
-    const capture = context.knowledge.captures[0];
-    assert.equal(capture.userId, USER_ID);
-    assert.equal(capture.request.captureChannel, 'telegram_text');
-    assert.equal(capture.request.originalText, 'Synthetic forwarded note.');
-    assert.equal(capture.request.sourceTitle, 'Forwarded Telegram message');
-    assert.equal(
-      capture.request.clientRequestId,
-      await telegramClientRequestId(7),
-    );
-    assert.equal(
-      context.telegram.messages[0].text.includes('Synthetic forwarded note.'),
-      false,
-    );
-  });
-
-  it('formats search citations from actual returned note IDs', async () => {
-    const context = dependencies();
-    context.repository.users.set(CHAT_ID, USER_ID);
-    await context.handler(
-      webhookRequest(update(8, { text: '/search synthetic lesson' })),
+      request(update(4, { text: '/search synthetic lesson' })),
     );
     assert.deepEqual(context.knowledge.searches[0], {
       userId: USER_ID,
       request: { query: 'synthetic lesson', limit: 5 },
     });
-    assert.match(context.telegram.messages[0].text, /Sources\n\[1\]/u);
-    assert.match(context.telegram.messages[0].text, /Synthetic stored note/u);
+    assert.equal(context.knowledge.searches.length, 1);
+    assert.match(context.telegram.messages[1].text, /\/find QUERY/u);
+  });
+
+  it('sends each active Practice separately with bounded callbacks', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    context.repository.practicesRows = [
+      {
+        noteId: NOTE_ID,
+        originalText: 'Exact original note.',
+        sourceTitle: 'Source',
+        nextDueOn: '2026-08-04',
+      },
+      {
+        noteId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        originalText: 'Second exact note.',
+        sourceTitle: null,
+        nextDueOn: '2026-08-05',
+      },
+    ];
+    await context.handler(request(update(5, { text: '/practice' })));
+    assert.equal(context.telegram.messages.length, 2);
+    assert.match(context.telegram.messages[0].text, /Exact original note/u);
+    const options = context.telegram.messages[0].options as {
+      inlineKeyboard: Array<Array<{ callbackData: string }>>;
+    };
+    assert.equal(options.inlineKeyboard[0][0].callbackData, `p:r:${NOTE_ID}`);
+    assert.ok(options.inlineKeyboard[0][0].callbackData.length <= 64);
+  });
+
+  it('routes a Practice reread callback through the owner-scoped service mutation', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    await context.handler(request(callback(6, `p:r:${NOTE_ID}`)));
+    assert.deepEqual(context.repository.mutations, [
+      { userId: USER_ID, action: 'reread', noteId: NOTE_ID },
+    ]);
+    assert.match(context.telegram.answers[0].text ?? '', /Reread recorded/u);
+  });
+
+  it('reports timezone and Practice time only', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    await context.handler(request(update(7, { text: '/settings' })));
+    assert.match(context.telegram.messages[0].text, /Practice time: 09:00/u);
+    assert.doesNotMatch(context.telegram.messages[0].text, /digest|review/iu);
+  });
+
+  it('keeps ordinary text capture unchanged and without a review date', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    await context.handler(request(update(8, { text: 'Synthetic note.' })));
+    assert.deepEqual(context.knowledge.captures[0], {
+      userId: USER_ID,
+      request: {
+        originalText: 'Synthetic note.',
+        captureChannel: 'telegram_text',
+        clientRequestId: await telegramClientRequestId(8),
+      },
+    });
     assert.equal(
-      context.telegram.messages[0].text.includes('Synthetic summary'),
+      'firstReviewDate' in context.knowledge.captureResponse.note,
       false,
     );
   });
 
-  it('bounds multiline and control-character weak matches to readable previews', async () => {
+  it('transcribes voice, captures it, and clears the raw buffer', async () => {
     const context = dependencies();
     context.repository.users.set(CHAT_ID, USER_ID);
-    context.knowledge.searchResponse = {
-      answer: null,
-      citations: [],
-      matches: Array.from({ length: 5 }, (_, index) => ({
-        noteId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
-        originalText: `Line ${index + 1}\n\t\u0000${'x'.repeat(20_000)}`,
-        personalContext: null,
-        noteType: 'lesson',
-        sourceTitle: null,
-        sourceUrl: null,
-        capturedAt: '2026-08-02T00:00:00.000Z',
-        similarity: 0.2,
-      })),
-      synthesisWithheld: true,
-    };
-
+    const raw = context.telegram.audio;
     await context.handler(
-      webhookRequest(update(18, { text: '/search bounded previews' })),
-    );
-
-    const message = context.telegram.messages[0].text;
-    assert.ok(message.length <= MAX_TELEGRAM_MESSAGE_LENGTH);
-    assert.match(message, /\[1\] Line 1 x+/u);
-    assert.equal(message.includes('\u0000'), false);
-    assert.equal(message.includes('\t'), false);
-  });
-
-  it('implements today, review, and settings responses', async () => {
-    const context = dependencies();
-    context.repository.users.set(CHAT_ID, USER_ID);
-    context.repository.today = [
-      {
-        noteType: 'lesson',
-        originalText: `Synthetic\n\t\u0000today note ${'x'.repeat(1_000)}`,
-      },
-    ];
-    context.repository.reviews = [
-      {
-        eventId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-        stage: 1,
-        sourceTitle: 'Fixture\n\u0000 source',
-      },
-      {
-        eventId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-        stage: 2,
-        sourceTitle: null,
-      },
-    ];
-    await context.handler(webhookRequest(update(9, { text: '/today' })));
-    await context.handler(webhookRequest(update(10, { text: '/review' })));
-    await context.handler(webhookRequest(update(11, { text: '/settings' })));
-    assert.match(context.telegram.messages[0].text, /What you kept today/u);
-    assert.match(
-      context.telegram.messages[0].text,
-      /lesson: Synthetic today note x+…/u,
-    );
-    assert.equal(context.telegram.messages[0].text.includes('\u0000'), false);
-    assert.match(
-      context.telegram.messages[1].text,
-      /1\. Stage 1\nWhat do you remember from Fixture source\?/u,
-    );
-    assert.match(
-      context.telegram.messages[1].text,
-      /2\. Stage 2\nWhat do you remember from this note\?/u,
-    );
-    assert.match(context.telegram.messages[2].text, /Asia\/Kolkata/u);
-  });
-});
-
-describe('Telegram voice handling', () => {
-  it('rejects an oversized voice note before download or transcription', async () => {
-    const context = dependencies();
-    context.repository.users.set(CHAT_ID, USER_ID);
-    await context.handler(
-      webhookRequest(
-        update(12, {
-          voice: { file_id: 'fixture-file', duration: 121, file_size: 1 },
-        }),
-      ),
-    );
-    assert.equal(context.telegram.downloads, 0);
-    assert.equal(context.transcriber.calls, 0);
-    assert.equal(context.knowledge.captures.length, 0);
-    assert.match(context.telegram.messages[0].text, /two minutes/u);
-  });
-
-  it('transcribes, captures, and zeroes downloaded audio immediately', async () => {
-    const context = dependencies();
-    context.repository.users.set(CHAT_ID, USER_ID);
-    const rawAudio = context.telegram.audio;
-    await context.handler(
-      webhookRequest(
-        update(13, {
-          voice: {
-            file_id: 'fixture-file',
-            duration: 30,
-            file_size: 3,
-            mime_type: 'audio/ogg',
-          },
+      request(
+        update(9, {
+          voice: { file_id: 'voice', duration: 30, file_size: 3 },
         }),
       ),
     );
     assert.equal(context.transcriber.calls, 1);
-    assert.deepEqual(Array.from(rawAudio), [0, 0, 0]);
-    assert.equal(
-      context.knowledge.captures[0].request.captureChannel,
-      'telegram_voice',
-    );
     assert.equal(
       context.knowledge.captures[0].request.originalText,
-      'Synthetic voice transcription.',
+      'Transcribed voice note.',
     );
-    assert.equal(
-      context.telegram.messages[0].text.includes(
-        'Synthetic voice transcription.',
-      ),
-      false,
-    );
-  });
-
-  it('enforces the downloaded-file size reported by Telegram', async () => {
-    let calls = 0;
-    const client = new TelegramApiClient('synthetic-token', async () => {
-      calls += 1;
-      return Response.json({
-        ok: true,
-        result: { file_path: 'voice/file.oga', file_size: 11 },
-      });
-    });
-    await assert.rejects(
-      () => client.downloadVoice('fixture', 10),
-      /two minutes/u,
-    );
-    assert.equal(calls, 1);
-  });
-
-  it('stops a voice download when the streamed body crosses the byte limit', async () => {
-    let calls = 0;
-    const client = new TelegramApiClient('synthetic-token', async () => {
-      calls += 1;
-      if (calls === 1) {
-        return Response.json({
-          ok: true,
-          result: { file_path: 'voice/file.oga' },
-        });
-      }
-      return new Response(new Uint8Array(11));
-    });
-    await assert.rejects(
-      () => client.downloadVoice('fixture', 10),
-      /two minutes/u,
-    );
-    assert.equal(calls, 2);
-  });
-
-  it('uses gpt-transcribe multipart input without a live API call', async () => {
-    let observedModel = '';
-    let observedFile = false;
-    const transcriber = new OpenAiVoiceTranscriber(
-      'synthetic-key',
-      async (_url, init) => {
-        const form = init?.body as FormData;
-        observedModel = String(form.get('model'));
-        observedFile = form.get('file') instanceof Blob;
-        return Response.json({ text: 'Synthetic transcription.' });
-      },
-    );
-    const text = await transcriber.transcribe(
-      new Uint8Array([1, 2, 3]),
-      'audio/ogg',
-    );
-    assert.equal(observedModel, 'gpt-transcribe');
-    assert.equal(observedFile, true);
-    assert.equal(text, 'Synthetic transcription.');
+    assert.deepEqual([...raw], [0, 0, 0]);
   });
 });

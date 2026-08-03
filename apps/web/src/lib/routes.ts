@@ -1,16 +1,18 @@
 export const AUTHENTICATED_ROUTES = [
-  '/today',
-  '/library',
-  '/review',
+  '/practice',
+  '/collection',
   '/settings',
 ] as const;
 
 export type AuthenticatedRoute = (typeof AUTHENTICATED_ROUTES)[number];
-export type AppRoute = AuthenticatedRoute | '/privacy';
+export type AppRoute = AuthenticatedRoute | '/privacy' | '/not-found';
 
 export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/privacy') return '/privacy';
-  return AUTHENTICATED_ROUTES.find((route) => route === pathname) ?? '/today';
+  if (pathname === '/') return '/practice';
+  return (
+    AUTHENTICATED_ROUTES.find((route) => route === pathname) ?? '/not-found'
+  );
 }
 
 export function navigate(path: AppRoute, replace = false): void {

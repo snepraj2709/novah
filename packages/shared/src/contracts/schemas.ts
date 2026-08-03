@@ -5,6 +5,7 @@ import {
   DEFAULT_SEARCH_MATCH_COUNT,
   MAX_NOTE_TEXT_LENGTH,
   MAX_PERSONAL_CONTEXT_LENGTH,
+  MAX_PRACTICE_ENTRY_TEXT_LENGTH,
   MAX_SEARCH_MATCH_COUNT,
   MAX_SEARCH_QUERY_LENGTH,
   MAX_SOURCE_TITLE_LENGTH,
@@ -56,7 +57,6 @@ export const captureNoteResponseSchema = z
         id: z.string().uuid(),
         originalText: z.string().min(1),
         noteType: noteTypeSchema,
-        firstReviewDate: z.iso.date(),
       })
       .strict(),
   })
@@ -147,6 +147,79 @@ export const deleteAccountResponseSchema = z
   .object({ deleted: z.literal(true) })
   .strict();
 
+export const practiceStatusSchema = z.enum(['active', 'paused', 'integrated']);
+export const practiceEntryKindSchema = z.enum(['reflection', 'story']);
+export const practiceSourceChannelSchema = z.enum([
+  'web',
+  'telegram_text',
+  'telegram_voice',
+]);
+
+const practiceNoteAction = <T extends string>(action: T) =>
+  z.object({ action: z.literal(action), noteId: z.string().uuid() }).strict();
+
+export const managePracticeRequestSchema = z.discriminatedUnion('action', [
+  practiceNoteAction('activate'),
+  practiceNoteAction('reread'),
+  z
+    .object({
+      action: z.literal('setInterval'),
+      noteId: z.string().uuid(),
+      intervalDays: z.number().int().min(1).max(30),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('pause'),
+      noteId: z.string().uuid(),
+      resumeOn: z.iso.date().optional(),
+    })
+    .strict(),
+  practiceNoteAction('resume'),
+  practiceNoteAction('integrate'),
+  practiceNoteAction('confirmIntegrated'),
+  practiceNoteAction('stopCheckIns'),
+  z
+    .object({
+      action: z.literal('addEntry'),
+      noteId: z.string().uuid(),
+      entryKind: practiceEntryKindSchema,
+      text: nonBlankString(MAX_PRACTICE_ENTRY_TEXT_LENGTH),
+    })
+    .strict(),
+]);
+
+export const practiceStateSchema = z
+  .object({
+    noteId: z.string().uuid(),
+    status: practiceStatusSchema,
+    intervalDays: z.number().int().min(1).max(30),
+    nextDueOn: z.iso.date().nullable(),
+    pausedUntil: z.iso.date().nullable(),
+    readyToResume: z.boolean(),
+    integratedAt: z.iso.datetime({ offset: true }).nullable(),
+    checkInsEnabled: z.boolean(),
+    nextCheckInOn: z.iso.date().nullable(),
+    lastPractisedAt: z.iso.datetime({ offset: true }).nullable(),
+  })
+  .strict();
+
+export const managePracticeResponseSchema = z
+  .object({
+    practice: practiceStateSchema,
+    entry: z
+      .object({
+        id: z.string().uuid(),
+        kind: practiceEntryKindSchema,
+        text: z.string().min(1).max(MAX_PRACTICE_ENTRY_TEXT_LENGTH),
+        sourceChannel: practiceSourceChannelSchema,
+        createdAt: z.iso.datetime({ offset: true }),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 export const digestThemeSchema = z
   .object({
     title: nonBlankString(200),
@@ -190,4 +263,9 @@ export type TelegramLinkCodeResponse = z.infer<
 >;
 export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;
 export type DeleteAccountResponse = z.infer<typeof deleteAccountResponseSchema>;
+export type ManagePracticeRequest = z.infer<typeof managePracticeRequestSchema>;
+export type ManagePracticeResponse = z.infer<
+  typeof managePracticeResponseSchema
+>;
+export type PracticeState = z.infer<typeof practiceStateSchema>;
 export type DailyDigest = z.infer<typeof dailyDigestSchema>;

@@ -47,6 +47,81 @@ export type Database = {
           },
         ];
       };
+      note_practices: {
+        Row: {
+          active_notification_claimed_at: string | null;
+          active_notification_sent_on: string | null;
+          check_in_notification_claimed_at: string | null;
+          check_in_notification_sent_on: string | null;
+          check_ins_enabled: boolean;
+          created_at: string;
+          integrated_at: string | null;
+          interval_days: number;
+          last_practised_at: string | null;
+          next_check_in_on: string | null;
+          next_due_on: string | null;
+          note_id: string;
+          paused_until: string | null;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          active_notification_claimed_at?: string | null;
+          active_notification_sent_on?: string | null;
+          check_in_notification_claimed_at?: string | null;
+          check_in_notification_sent_on?: string | null;
+          check_ins_enabled?: boolean;
+          created_at?: string;
+          integrated_at?: string | null;
+          interval_days?: number;
+          last_practised_at?: string | null;
+          next_check_in_on?: string | null;
+          next_due_on?: string | null;
+          note_id: string;
+          paused_until?: string | null;
+          ready_to_resume?: boolean;
+          status: Database['public']['Enums']['practice_status'];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          active_notification_claimed_at?: string | null;
+          active_notification_sent_on?: string | null;
+          check_in_notification_claimed_at?: string | null;
+          check_in_notification_sent_on?: string | null;
+          check_ins_enabled?: boolean;
+          created_at?: string;
+          integrated_at?: string | null;
+          interval_days?: number;
+          last_practised_at?: string | null;
+          next_check_in_on?: string | null;
+          next_due_on?: string | null;
+          note_id?: string;
+          paused_until?: string | null;
+          ready_to_resume?: boolean;
+          status?: Database['public']['Enums']['practice_status'];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'note_practices_owned_note_fk';
+            columns: ['note_id', 'user_id'];
+            isOneToOne: false;
+            referencedRelation: 'notes';
+            referencedColumns: ['id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'note_practices_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['user_id'];
+          },
+        ];
+      };
       notes: {
         Row: {
           capture_channel: Database['public']['Enums']['capture_channel'];
@@ -112,6 +187,99 @@ export type Database = {
           },
         ];
       };
+      practice_entries: {
+        Row: {
+          created_at: string;
+          id: string;
+          kind: Database['public']['Enums']['practice_entry_kind'];
+          note_id: string;
+          source_channel: Database['public']['Enums']['practice_source_channel'];
+          text: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          kind: Database['public']['Enums']['practice_entry_kind'];
+          note_id: string;
+          source_channel: Database['public']['Enums']['practice_source_channel'];
+          text: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          kind?: Database['public']['Enums']['practice_entry_kind'];
+          note_id?: string;
+          source_channel?: Database['public']['Enums']['practice_source_channel'];
+          text?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'practice_entries_owned_note_fk';
+            columns: ['note_id', 'user_id'];
+            isOneToOne: false;
+            referencedRelation: 'notes';
+            referencedColumns: ['id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'practice_entries_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['user_id'];
+          },
+        ];
+      };
+      practice_events: {
+        Row: {
+          created_at: string;
+          event_kind: Database['public']['Enums']['practice_event_kind'];
+          id: string;
+          local_date: string;
+          metadata: Json;
+          note_id: string;
+          occurred_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          event_kind: Database['public']['Enums']['practice_event_kind'];
+          id?: string;
+          local_date: string;
+          metadata?: Json;
+          note_id: string;
+          occurred_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          event_kind?: Database['public']['Enums']['practice_event_kind'];
+          id?: string;
+          local_date?: string;
+          metadata?: Json;
+          note_id?: string;
+          occurred_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'practice_events_owned_note_fk';
+            columns: ['note_id', 'user_id'];
+            isOneToOne: false;
+            referencedRelation: 'notes';
+            referencedColumns: ['id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'practice_events_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['user_id'];
+          },
+        ];
+      };
       processed_telegram_updates: {
         Row: {
           processed_at: string;
@@ -131,7 +299,8 @@ export type Database = {
         Row: {
           created_at: string;
           digest_time: string;
-          review_time: string;
+          last_practice_interval_days: number;
+          practice_time: string;
           telegram_chat_id: number | null;
           timezone: string;
           updated_at: string;
@@ -140,7 +309,8 @@ export type Database = {
         Insert: {
           created_at?: string;
           digest_time?: string;
-          review_time?: string;
+          last_practice_interval_days?: number;
+          practice_time?: string;
           telegram_chat_id?: number | null;
           timezone?: string;
           updated_at?: string;
@@ -149,7 +319,8 @@ export type Database = {
         Update: {
           created_at?: string;
           digest_time?: string;
-          review_time?: string;
+          last_practice_interval_days?: number;
+          practice_time?: string;
           telegram_chat_id?: number | null;
           timezone?: string;
           updated_at?: string;
@@ -246,6 +417,57 @@ export type Database = {
           },
         ];
       };
+      telegram_reply_prompts: {
+        Row: {
+          chat_id: number;
+          consumed_at: string | null;
+          created_at: string;
+          expires_at: string;
+          id: string;
+          intent: Database['public']['Enums']['telegram_reply_intent'];
+          note_id: string;
+          prompt_message_id: number;
+          user_id: string;
+        };
+        Insert: {
+          chat_id: number;
+          consumed_at?: string | null;
+          created_at?: string;
+          expires_at: string;
+          id?: string;
+          intent: Database['public']['Enums']['telegram_reply_intent'];
+          note_id: string;
+          prompt_message_id: number;
+          user_id: string;
+        };
+        Update: {
+          chat_id?: number;
+          consumed_at?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          intent?: Database['public']['Enums']['telegram_reply_intent'];
+          note_id?: string;
+          prompt_message_id?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'telegram_reply_prompts_owned_note_fk';
+            columns: ['note_id', 'user_id'];
+            isOneToOne: false;
+            referencedRelation: 'notes';
+            referencedColumns: ['id', 'user_id'];
+          },
+          {
+            foreignKeyName: 'telegram_reply_prompts_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['user_id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -268,7 +490,6 @@ export type Database = {
         };
         Returns: {
           created: boolean;
-          first_review_date: string;
           note_id: string;
           stored_note_type: Database['public']['Enums']['note_type'];
           stored_original_text: string;
@@ -293,7 +514,6 @@ export type Database = {
         };
         Returns: {
           created: boolean;
-          first_review_date: string;
           note_id: string;
           stored_note_type: Database['public']['Enums']['note_type'];
           stored_original_text: string;
@@ -309,6 +529,19 @@ export type Database = {
           input_user_id: string;
         };
         Returns: string;
+      };
+      claim_due_practices: {
+        Args: {
+          input_claimed_at: string;
+          input_local_date: string;
+          input_user_id: string;
+        };
+        Returns: {
+          next_due_on: string;
+          note_id: string;
+          original_text: string;
+          source_title: string;
+        }[];
       };
       claim_due_reviews: {
         Args: {
@@ -341,8 +574,71 @@ export type Database = {
       };
       is_http_url: { Args: { input_url: string }; Returns: boolean };
       is_valid_timezone: { Args: { timezone_name: string }; Returns: boolean };
+      manage_practice: {
+        Args: { input_action: string; input_note_id: string };
+        Returns: {
+          check_ins_enabled: boolean;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
+      };
+      manage_practice_core: {
+        Args: {
+          input_action: string;
+          input_note_id: string;
+          input_now?: string;
+          input_user_id: string;
+        };
+        Returns: {
+          check_ins_enabled: boolean;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
+      };
+      manage_practice_for_user: {
+        Args: {
+          input_action: string;
+          input_note_id: string;
+          input_user_id: string;
+        };
+        Returns: {
+          check_ins_enabled: boolean;
+          integrated_at: string;
+          interval_days: number;
+          last_practised_at: string;
+          next_check_in_on: string;
+          next_due_on: string;
+          note_id: string;
+          paused_until: string;
+          ready_to_resume: boolean;
+          status: Database['public']['Enums']['practice_status'];
+        }[];
+      };
       mark_daily_digest_sent: {
         Args: { input_digest_id: string; input_sent_at?: string };
+        Returns: boolean;
+      };
+      mark_practice_notification_sent: {
+        Args: {
+          input_local_date: string;
+          input_note_id: string;
+          input_sent_at: string;
+          input_user_id: string;
+        };
         Returns: boolean;
       };
       mark_review_packet_sent: {
@@ -416,6 +712,10 @@ export type Database = {
           summary: string;
         }[];
       };
+      practice_local_date: {
+        Args: { input_now?: string; input_user_id: string };
+        Returns: string;
+      };
       record_review_feedback_for_user: {
         Args: {
           input_answered_at?: string;
@@ -444,8 +744,22 @@ export type Database = {
         | 'reflection'
         | 'principle'
         | 'conversation_note';
+      practice_entry_kind: 'reflection' | 'story';
+      practice_event_kind:
+        | 'activation'
+        | 'reread'
+        | 'interval_change'
+        | 'pause'
+        | 'ready_to_resume'
+        | 'resume'
+        | 'integration'
+        | 'integration_confirmation'
+        | 'stopped_check_ins';
+      practice_source_channel: 'web' | 'telegram_text' | 'telegram_voice';
+      practice_status: 'active' | 'paused' | 'integrated';
       review_status:
         'pending' | 'sent' | 'remembered' | 'partial' | 'missed' | 'skipped';
+      telegram_reply_intent: 'reflection' | 'story' | 'interval';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -583,6 +897,20 @@ export const Constants = {
         'principle',
         'conversation_note',
       ],
+      practice_entry_kind: ['reflection', 'story'],
+      practice_event_kind: [
+        'activation',
+        'reread',
+        'interval_change',
+        'pause',
+        'ready_to_resume',
+        'resume',
+        'integration',
+        'integration_confirmation',
+        'stopped_check_ins',
+      ],
+      practice_source_channel: ['web', 'telegram_text', 'telegram_voice'],
+      practice_status: ['active', 'paused', 'integrated'],
       review_status: [
         'pending',
         'sent',
@@ -591,6 +919,7 @@ export const Constants = {
         'missed',
         'skipped',
       ],
+      telegram_reply_intent: ['reflection', 'story', 'interval'],
     },
   },
 } as const;

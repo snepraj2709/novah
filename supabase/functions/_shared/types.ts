@@ -17,7 +17,6 @@ export interface StoredCapture {
   id: string;
   originalText: string;
   noteType: Classification['noteType'];
-  firstReviewDate: string;
   created: boolean;
 }
 

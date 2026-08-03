@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(17);
+select extensions.plan(14);
 
 set local role authenticated;
 select set_config(
@@ -97,25 +97,8 @@ select extensions.is(
     from public.review_events
     where note_id = (select note_id from first_capture_result)
   ),
-  5::bigint,
-  'atomic capture creates exactly five review events'
-);
-
-select extensions.results_eq(
-  $$
-    select
-      review_event.stage::integer,
-      review_event.due_on - (
-        note.captured_at at time zone profile.timezone
-      )::date as day_offset
-    from public.review_events as review_event
-    join public.notes as note on note.id = review_event.note_id
-    join public.profiles as profile on profile.user_id = note.user_id
-    where note.id = (select note_id from first_capture_result)
-    order by review_event.stage
-  $$,
-  $$ values (1, 1), (2, 2), (3, 3), (4, 7), (5, 21) $$,
-  'review events use the locked local-calendar offsets'
+  0::bigint,
+  'atomic capture creates no Review rows'
 );
 
 create temporary table duplicate_capture_result on commit drop as
@@ -226,72 +209,6 @@ select extensions.is(
   ),
   0::bigint,
   'user B cannot see user A atomic captures'
-);
-
-reset role;
-
-create function pg_temp.reject_review_fixture()
-returns trigger
-language plpgsql
-as $$
-begin
-  raise exception 'synthetic review failure';
-end;
-$$;
-
-create trigger phase_2_reject_review_fixture
-before insert on public.review_events
-for each row execute function pg_temp.reject_review_fixture();
-
-set local role authenticated;
-select set_config(
-  'request.jwt.claim.sub',
-  '00000000-0000-4000-8000-00000000000a',
-  true
-);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-
-select extensions.throws_ok(
-  $$
-    select *
-    from public.capture_note_atomic(
-      'This note must roll back.',
-      null,
-      'lesson',
-      'Synthetic rollback summary.',
-      array['rollback', 'testing'],
-      'Did the note roll back?',
-      null,
-      null,
-      'web',
-      '60000000-0000-4000-8000-00000000000c',
-      pg_catalog.array_fill(0::real, array[1536])::extensions.vector
-    )
-  $$,
-  'P0001',
-  'synthetic review failure',
-  'a review insertion failure aborts atomic capture'
-);
-
-reset role;
-drop trigger phase_2_reject_review_fixture on public.review_events;
-
-set local role authenticated;
-select set_config(
-  'request.jwt.claim.sub',
-  '00000000-0000-4000-8000-00000000000a',
-  true
-);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-
-select extensions.is(
-  (
-    select count(*)
-    from public.notes
-    where client_request_id = '60000000-0000-4000-8000-00000000000c'
-  ),
-  0::bigint,
-  'a failed review insertion leaves no partial note row'
 );
 
 reset role;

@@ -6,16 +6,14 @@ import { LoadingState } from './components/AsyncState.tsx';
 import { routeFromPath, navigate, type AppRoute } from './lib/routes.ts';
 import { supabase } from './lib/supabase.ts';
 import { AuthPage } from './pages/AuthPage.tsx';
-import { LibraryPage } from './pages/LibraryPage.tsx';
+import { CollectionPage } from './pages/LibraryPage.tsx';
 import { PrivacyPage } from './pages/PrivacyPage.tsx';
-import { ReviewPage } from './pages/ReviewPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
-import { TodayPage } from './pages/TodayPage.tsx';
+import { PracticePage } from './pages/PracticePage.tsx';
 
 const NAVIGATION: Array<{ route: AppRoute; label: string; glyph: string }> = [
-  { route: '/today', label: 'Today', glyph: '☀' },
-  { route: '/library', label: 'Library', glyph: '▤' },
-  { route: '/review', label: 'Review', glyph: '↻' },
+  { route: '/practice', label: 'Practice', glyph: '↻' },
+  { route: '/collection', label: 'Collection', glyph: '▤' },
   { route: '/settings', label: 'Settings', glyph: '⚙' },
 ];
 
@@ -28,12 +26,13 @@ function DashboardShell({
 }) {
   async function signOut() {
     await supabase.auth.signOut({ scope: 'local' });
-    navigate('/today', true);
+    navigate('/practice', true);
   }
 
   const page = (() => {
-    if (route === '/library') return <LibraryPage userId={session.user.id} />;
-    if (route === '/review') return <ReviewPage userId={session.user.id} />;
+    if (route === '/collection') {
+      return <CollectionPage userId={session.user.id} />;
+    }
     if (route === '/settings') {
       return (
         <SettingsPage
@@ -42,7 +41,19 @@ function DashboardShell({
         />
       );
     }
-    return <TodayPage userId={session.user.id} />;
+    if (route === '/practice') return <PracticePage userId={session.user.id} />;
+    return (
+      <section className="empty-card">
+        <h1>Page not found</h1>
+        <p>This Novah route is no longer available.</p>
+        <button
+          className="button primary"
+          onClick={() => navigate('/practice')}
+        >
+          Open Practice
+        </button>
+      </section>
+    );
   })();
 
   return (
@@ -51,7 +62,7 @@ function DashboardShell({
         <button
           className="wordmark wordmark-button"
           type="button"
-          onClick={() => navigate('/today')}
+          onClick={() => navigate('/practice')}
         >
           <span className="brand-mark">N</span>
           Novah
@@ -126,10 +137,16 @@ function App() {
     void supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setAuthReady(true);
+      if (data.session && window.location.pathname === '/') {
+        navigate('/practice', true);
+      }
     });
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setAuthReady(true);
+      if (nextSession && window.location.pathname === '/') {
+        navigate('/practice', true);
+      }
     });
     return () => data.subscription.unsubscribe();
   }, []);

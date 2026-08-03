@@ -21,7 +21,6 @@ export interface TelegramFunctionEnvironment {
 }
 
 export interface NotificationFunctionEnvironment {
-  openAiApiKey: string;
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
   telegramBotToken: string;
@@ -88,7 +87,6 @@ export function telegramFunctionEnvironment(): TelegramFunctionEnvironment {
 
 export function notificationFunctionEnvironment(): NotificationFunctionEnvironment {
   return {
-    openAiApiKey: required('OPENAI_API_KEY'),
     supabaseUrl: required('SUPABASE_URL'),
     supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
     telegramBotToken: required('TELEGRAM_BOT_TOKEN'),

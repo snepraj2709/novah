@@ -7,6 +7,12 @@ export type ApiErrorCode =
   | 'ai_unavailable'
   | 'payload_too_large'
   | 'telegram_unavailable'
+  | 'practice_slots_full'
+  | 'practice_not_found'
+  | 'invalid_transition'
+  | 'entry_too_long'
+  | 'reply_expired'
+  | 'stale_action'
   | 'internal_error';
 
 export class ApiError extends Error {

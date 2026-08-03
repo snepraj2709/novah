@@ -1,11 +1,15 @@
 import {
   captureNoteResponseSchema,
+  managePracticeRequestSchema,
+  managePracticeResponseSchema,
   searchNotesRequestSchema,
   searchNotesResponseSchema,
   telegramLinkCodeRequestSchema,
   telegramLinkCodeResponseSchema,
   type CaptureNoteRequest,
   type CaptureNoteResponse,
+  type ManagePracticeRequest,
+  type ManagePracticeResponse,
   type SearchNotesRequest,
   type SearchNotesResponse,
   type TelegramLinkCodeResponse,
@@ -29,7 +33,8 @@ export class ExtensionApiError extends Error {
 }
 
 async function invokeFunction(
-  functionName: 'capture-note' | 'search-notes' | 'telegram-link-code',
+  functionName:
+    'capture-note' | 'search-notes' | 'telegram-link-code' | 'manage-practice',
   body: unknown,
 ): Promise<unknown> {
   const { data, error } = await supabase.auth.getSession();
@@ -135,6 +140,24 @@ export async function generateTelegramLinkCode(): Promise<TelegramLinkCodeRespon
   if (!parsed.success) {
     throw new ExtensionApiError(
       'Novah returned an invalid Telegram link response.',
+      'invalid_response',
+      true,
+    );
+  }
+  return parsed.data;
+}
+
+export async function managePractice(
+  request: ManagePracticeRequest,
+): Promise<ManagePracticeResponse> {
+  const payload = await invokeFunction(
+    'manage-practice',
+    managePracticeRequestSchema.parse(request),
+  );
+  const parsed = managePracticeResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new ExtensionApiError(
+      'Novah returned an invalid Practice response.',
       'invalid_response',
       true,
     );

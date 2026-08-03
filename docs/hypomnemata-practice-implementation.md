@@ -768,9 +768,9 @@ verification remain approval-gated.
 The implementing agent must append concise evidence here after each approved
 phase. Until then, leave every phase Pending.
 
-| Phase                                 | Status  | Evidence |
-| ------------------------------------- | ------- | -------- |
-| Idea 1 — Active Practice foundation   | Pending | —        |
-| Idea 2 — Living reflection thread     | Pending | —        |
-| Idea 3 — Bandwidth-aware lifecycle    | Pending | —        |
-| Final destructive cleanup and cutover | Pending | —        |
+| Phase                                 | Status   | Evidence                                                                                                                                                                                                         |
+| ------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idea 1 — Active Practice foundation   | Complete | Fresh reset/types; 136 pgTAP assertions plus signed-JWT concurrent activation (3 active, fourth rejected); 53 function, 8 web, and 13 extension tests; type, lint, format, build, security, and diff gates pass. |
+| Idea 2 — Living reflection thread     | Pending  | —                                                                                                                                                                                                                |
+| Idea 3 — Bandwidth-aware lifecycle    | Pending  | —                                                                                                                                                                                                                |
+| Final destructive cleanup and cutover | Pending  | —                                                                                                                                                                                                                |

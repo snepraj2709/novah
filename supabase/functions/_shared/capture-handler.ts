@@ -29,7 +29,6 @@ function captureResponse(capture: StoredCapture): Response {
         id: capture.id,
         originalText: capture.originalText,
         noteType: capture.noteType,
-        firstReviewDate: capture.firstReviewDate,
       },
     }),
   );

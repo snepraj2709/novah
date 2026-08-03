@@ -70,10 +70,16 @@ describe('dashboard exports', () => {
 });
 
 describe('dashboard routing and local dates', () => {
-  it('keeps known routes and safely falls back to Today', () => {
+  it('lands on Practice and leaves retired routes unsupported', () => {
     assert.equal(routeFromPath('/privacy'), '/privacy');
     assert.equal(routeFromPath('/settings'), '/settings');
-    assert.equal(routeFromPath('/unknown'), '/today');
+    assert.equal(routeFromPath('/'), '/practice');
+    assert.equal(routeFromPath('/practice'), '/practice');
+    assert.equal(routeFromPath('/collection'), '/collection');
+    assert.equal(routeFromPath('/today'), '/not-found');
+    assert.equal(routeFromPath('/library'), '/not-found');
+    assert.equal(routeFromPath('/review'), '/not-found');
+    assert.equal(routeFromPath('/unknown'), '/not-found');
   });
 
   it('uses the profile timezone and a range covering all UTC offsets', () => {

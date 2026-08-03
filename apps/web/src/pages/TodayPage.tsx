@@ -54,7 +54,7 @@ export function TodayPage({ userId }: { userId: string }) {
         <button
           className="button secondary"
           type="button"
-          onClick={() => navigate('/library')}
+          onClick={() => navigate('/collection')}
         >
           Open library
         </button>

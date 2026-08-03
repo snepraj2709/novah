@@ -30,6 +30,9 @@ export const REVIEW_STAGE_DAY_OFFSETS = [1, 2, 3, 7, 21] as const;
 export const DEFAULT_TIMEZONE = 'Asia/Kolkata';
 export const DEFAULT_DIGEST_TIME = '21:00';
 export const DEFAULT_REVIEW_TIME = '09:00';
+export const DEFAULT_PRACTICE_TIME = '09:00';
+export const DEFAULT_PRACTICE_INTERVAL_DAYS = 1;
+export const MAX_ACTIVE_PRACTICES = 3;
 
 export const MAX_SEARCH_MATCH_COUNT = 20;
 export const DEFAULT_SEARCH_MATCH_COUNT = 8;
@@ -40,6 +43,7 @@ export const MAX_PERSONAL_CONTEXT_LENGTH = 2_000;
 export const MAX_SOURCE_TITLE_LENGTH = 500;
 export const MAX_SOURCE_URL_LENGTH = 2_048;
 export const MAX_SEARCH_QUERY_LENGTH = 500;
+export const MAX_PRACTICE_ENTRY_TEXT_LENGTH = 5_000;
 export const MAX_JSON_REQUEST_BYTES = 64 * 1024;
 export const MAX_TELEGRAM_UPDATE_BYTES = 256 * 1024;
 

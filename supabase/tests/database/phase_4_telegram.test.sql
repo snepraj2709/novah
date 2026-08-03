@@ -233,8 +233,8 @@ select extensions.is(
     from public.review_events
     where note_id = (select note_id from telegram_capture)
   ),
-  5::bigint,
-  'service capture creates exactly five review events'
+  0::bigint,
+  'service capture creates no Review rows'
 );
 
 select extensions.is(

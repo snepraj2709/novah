@@ -11,7 +11,7 @@ export default defineConfig({
   }),
   manifest: ({ mode }) => ({
     name: 'Novah',
-    description: 'Save what matters. Recall it when it matters.',
+    description: 'Save what matters. Find it and keep it in Practice.',
     version: '0.1.0',
     ...(mode === 'store' ? {} : { key: developmentExtensionPublicKey }),
     permissions: ['contextMenus', 'storage', 'activeTab'],

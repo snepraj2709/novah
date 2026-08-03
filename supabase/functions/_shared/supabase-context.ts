@@ -10,8 +10,15 @@ import type {
   NoteRepository,
   StoredCapture,
 } from './types.ts';
+import type {
+  PracticeRepository,
+  SupportedPracticeAction,
+} from './practice-types.ts';
+import type { PracticeState } from './contracts.ts';
 
-export class SupabaseRequestContext implements Authenticator, NoteRepository {
+export class SupabaseRequestContext
+  implements Authenticator, NoteRepository, PracticeRepository
+{
   private client: SupabaseClient<Database> | null = null;
   constructor(
     private readonly url: string,
@@ -62,24 +69,10 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
         true,
       );
     if (!note) return null;
-    const { data: review, error: reviewError } = await client
-      .from('review_events')
-      .select('due_on')
-      .eq('note_id', note.id)
-      .eq('stage', 1)
-      .single();
-    if (reviewError || !review)
-      throw new ApiError(
-        500,
-        'internal_error',
-        'Capture could not be checked.',
-        true,
-      );
     return {
       id: note.id,
       originalText: note.original_text,
       noteType: note.note_type,
-      firstReviewDate: review.due_on,
       created: false,
     };
   }
@@ -111,7 +104,6 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
       id: row.note_id,
       originalText: row.stored_original_text,
       noteType: row.stored_note_type,
-      firstReviewDate: row.first_review_date,
       created: row.created,
     };
   }
@@ -142,6 +134,58 @@ export class SupabaseRequestContext implements Authenticator, NoteRepository {
       capturedAt: row.captured_at,
       similarity: row.similarity,
     }));
+  }
+
+  async managePractice(
+    action: SupportedPracticeAction,
+    noteId: string,
+  ): Promise<PracticeState> {
+    const client = this.authenticatedClient();
+    const { data, error } = await client.rpc('manage_practice', {
+      input_action: action,
+      input_note_id: noteId,
+    });
+    if (error) {
+      const code = error.message.match(
+        /(practice_slots_full|practice_not_found|invalid_transition)/u,
+      )?.[1];
+      if (code === 'practice_slots_full') {
+        throw new ApiError(409, code, 'All three Practice slots are in use.');
+      }
+      if (code === 'practice_not_found') {
+        throw new ApiError(404, code, 'The note or Practice was not found.');
+      }
+      if (code === 'invalid_transition') {
+        throw new ApiError(409, code, 'That Practice action is not available.');
+      }
+      throw new ApiError(
+        500,
+        'internal_error',
+        'Practice could not be updated.',
+        true,
+      );
+    }
+    const row = data?.[0];
+    if (!row) {
+      throw new ApiError(
+        500,
+        'internal_error',
+        'Practice state is missing.',
+        true,
+      );
+    }
+    return {
+      noteId: row.note_id,
+      status: row.status,
+      intervalDays: row.interval_days,
+      nextDueOn: row.next_due_on,
+      pausedUntil: row.paused_until,
+      readyToResume: row.ready_to_resume,
+      integratedAt: row.integrated_at,
+      checkInsEnabled: row.check_ins_enabled,
+      nextCheckInOn: row.next_check_in_on,
+      lastPractisedAt: row.last_practised_at,
+    };
   }
 
   async createTelegramLinkCode(

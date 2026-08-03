@@ -9,10 +9,14 @@ export function NoteCard({
   note,
   onOpen,
   onDelete,
+  onActivate,
+  onReread,
 }: {
   note: DashboardNote;
   onOpen: (note: DashboardNote) => void;
   onDelete?: (note: DashboardNote) => void;
+  onActivate?: (note: DashboardNote) => void;
+  onReread?: (note: DashboardNote) => void;
 }) {
   const typeLabel = noteTypeLabel(note.noteType);
   const accessibleTypeLabel = typeLabel.endsWith('note')
@@ -50,7 +54,34 @@ export function NoteCard({
         )}
       </div>
       <footer>
-        <div className="source-line"></div>
+        <div className="source-line">
+          <span>
+            {note.sourceTitle ?? 'Personal note'} ·{' '}
+            {note.practice
+              ? note.practice.status === 'active'
+                ? `Practising${note.practice.nextDueOn ? ` · due ${note.practice.nextDueOn}` : ''}`
+                : note.practice.status
+              : 'Saved'}
+          </span>
+        </div>
+        {!note.practice && onActivate && (
+          <button
+            type="button"
+            className="button ghost"
+            onClick={() => onActivate(note)}
+          >
+            Keep this with me
+          </button>
+        )}
+        {note.practice?.status === 'active' && onReread && (
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => onReread(note)}
+          >
+            Reread
+          </button>
+        )}
         {onDelete && (
           <button
             type="button"

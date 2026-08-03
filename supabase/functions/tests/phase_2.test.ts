@@ -48,7 +48,6 @@ class Repository implements NoteRepository {
       id: NOTE_ID,
       originalText: input.originalText,
       noteType: input.noteType,
-      firstReviewDate: '2026-08-02',
       created: true,
     };
   }
@@ -156,7 +155,6 @@ describe('capture-note', () => {
     assert.equal('recallPrompt' in repository.captures[0], false);
     const payload = await response.json();
     assert.deepEqual(Object.keys(payload.note).sort(), [
-      'firstReviewDate',
       'id',
       'noteType',
       'originalText',
@@ -205,7 +203,6 @@ describe('capture-note', () => {
       id: NOTE_ID,
       originalText: 'Stored original.',
       noteType: 'lesson',
-      firstReviewDate: '2026-08-02',
       created: false,
     };
     const ai = new Ai();
@@ -393,7 +390,6 @@ describe('shared infrastructure', () => {
           id: NOTE_ID,
           originalText: 'Stored original.',
           noteType: 'lesson',
-          firstReviewDate: '2026-08-02',
         },
       }).success,
       true,

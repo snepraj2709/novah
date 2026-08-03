@@ -119,6 +119,7 @@ const config = readFileSync(join(root, 'supabase/config.toml'), 'utf8');
 const expectedJwt = new Map([
   ['capture-note', true],
   ['delete-account', true],
+  ['manage-practice', true],
   ['search-notes', true],
   ['telegram-link-code', true],
   ['telegram-webhook', false],
@@ -145,6 +146,7 @@ for (const [name, verifyJwt] of expectedJwt) {
 for (const handler of [
   'capture-handler.ts',
   'account-deletion-handler.ts',
+  'practice-handler.ts',
   'search-handler.ts',
   'telegram-link-handler.ts',
 ]) {
@@ -159,6 +161,26 @@ const internalBoundaries = [
   ['telegram-webhook', 'X-Telegram-Bot-Api-Secret-Token'],
   ['process-notifications', 'Bearer'],
 ];
+
+const notificationEntry = readFileSync(
+  join(root, 'supabase/functions/process-notifications/index.ts'),
+  'utf8',
+);
+assert.doesNotMatch(
+  notificationEntry,
+  /OpenAiProvider|openAiApiKey|OPENAI_API_KEY/u,
+  'Practice notification worker must not construct a text-model provider',
+);
+
+const telegramHandler = readFileSync(
+  join(root, 'supabase/functions/_shared/telegram-handler.ts'),
+  'utf8',
+);
+assert.doesNotMatch(
+  telegramHandler,
+  /command\?\.name === '(?:search|today|review)'/u,
+  'retired Telegram commands must not remain routable',
+);
 for (const [name, marker] of internalBoundaries) {
   const shared = readFileSync(
     join(

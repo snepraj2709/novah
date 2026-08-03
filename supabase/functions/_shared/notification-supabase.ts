@@ -2,8 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../packages/shared/src/types/database.ts';
 import { ApiError } from './errors.ts';
 import type {
-  ClaimedReview,
-  DigestEvidenceNote,
+  ClaimedPractice,
   NotificationProfile,
   NotificationRepository,
 } from './notification-types.ts';
@@ -12,7 +11,7 @@ function databaseFailure(): ApiError {
   return new ApiError(
     500,
     'internal_error',
-    'Notification data could not be processed.',
+    'Practice notifications could not be processed.',
     true,
   );
 }
@@ -27,120 +26,69 @@ export class SupabaseNotificationRepository implements NotificationRepository {
   }
 
   async profiles(): Promise<NotificationProfile[]> {
-    type ProfileRow = Pick<
-      Database['public']['Tables']['profiles']['Row'],
-      | 'user_id'
-      | 'telegram_chat_id'
-      | 'timezone'
-      | 'digest_time'
-      | 'review_time'
-    >;
-    const rows: ProfileRow[] = [];
+    const rows: NotificationProfile[] = [];
     const pageSize = 1_000;
     for (let start = 0; ; start += pageSize) {
       const { data, error } = await this.client
         .from('profiles')
-        .select('user_id, telegram_chat_id, timezone, digest_time, review_time')
+        .select('user_id, telegram_chat_id, timezone, practice_time')
         .not('telegram_chat_id', 'is', null)
         .order('user_id', { ascending: true })
         .range(start, start + pageSize - 1);
       if (error) throw databaseFailure();
       const page = data ?? [];
-      rows.push(...page);
-      if (page.length < pageSize) break;
-    }
-    return rows.flatMap((profile) =>
-      profile.telegram_chat_id === null
-        ? []
-        : [
-            {
-              userId: profile.user_id,
-              chatId: profile.telegram_chat_id,
-              timezone: profile.timezone,
-              digestTime: profile.digest_time,
-              reviewTime: profile.review_time,
-            },
-          ],
-    );
-  }
-
-  async digestEvidence(
-    userId: string,
-    digestDate: string,
-  ): Promise<DigestEvidenceNote[]> {
-    const evidence: DigestEvidenceNote[] = [];
-    const pageSize = 1_000;
-    for (let start = 0; ; start += pageSize) {
-      const { data, error } = await this.client
-        .rpc('notification_digest_notes', {
-          input_user_id: userId,
-          input_digest_date: digestDate,
-        })
-        .range(start, start + pageSize - 1);
-      if (error) throw databaseFailure();
-      const page = data ?? [];
-      evidence.push(
-        ...page.map((note) => ({
-          noteId: note.note_id,
-          originalText: note.original_text,
-          personalContext: note.personal_context,
-          sourceTitle: note.source_title,
-          sourceUrl: note.source_url,
-        })),
+      rows.push(
+        ...page.flatMap((profile) =>
+          profile.telegram_chat_id === null
+            ? []
+            : [
+                {
+                  userId: profile.user_id,
+                  chatId: profile.telegram_chat_id,
+                  timezone: profile.timezone,
+                  practiceTime: profile.practice_time,
+                },
+              ],
+        ),
       );
-      if (page.length < pageSize) return evidence;
+      if (page.length < pageSize) return rows;
     }
   }
 
-  async claimDigest(
-    userId: string,
-    digestDate: string,
-    noteIds: string[],
-    content: Parameters<NotificationRepository['claimDigest']>[3],
-  ): Promise<string | null> {
-    const { data, error } = await this.client.rpc('claim_daily_digest', {
-      input_user_id: userId,
-      input_digest_date: digestDate,
-      input_note_ids: noteIds,
-      input_content: content,
-    });
-    if (error) throw databaseFailure();
-    return data;
-  }
-
-  async markDigestSent(digestId: string, sentAt: string): Promise<boolean> {
-    const { data, error } = await this.client.rpc('mark_daily_digest_sent', {
-      input_digest_id: digestId,
-      input_sent_at: sentAt,
-    });
-    if (error) throw databaseFailure();
-    return data;
-  }
-
-  async claimReviews(
+  async claimDuePractices(
     userId: string,
     localDate: string,
     claimedAt: string,
-  ): Promise<ClaimedReview[]> {
-    const { data, error } = await this.client.rpc('claim_due_reviews', {
+  ): Promise<ClaimedPractice[]> {
+    const { data, error } = await this.client.rpc('claim_due_practices', {
       input_user_id: userId,
       input_local_date: localDate,
       input_claimed_at: claimedAt,
     });
     if (error) throw databaseFailure();
-    return (data ?? []).map((review) => ({
-      eventId: review.event_id,
-      noteId: review.note_id,
-      stage: review.stage,
-      sourceTitle: review.source_title,
+    return (data ?? []).map((practice) => ({
+      noteId: practice.note_id,
+      originalText: practice.original_text,
+      sourceTitle: practice.source_title,
+      nextDueOn: practice.next_due_on,
     }));
   }
 
-  async markReviewsSent(eventIds: string[], sentAt: string): Promise<number> {
-    const { data, error } = await this.client.rpc('mark_review_packet_sent', {
-      input_event_ids: eventIds,
-      input_sent_at: sentAt,
-    });
+  async markPracticeSent(
+    userId: string,
+    noteId: string,
+    localDate: string,
+    sentAt: string,
+  ): Promise<boolean> {
+    const { data, error } = await this.client.rpc(
+      'mark_practice_notification_sent',
+      {
+        input_user_id: userId,
+        input_note_id: noteId,
+        input_local_date: localDate,
+        input_sent_at: sentAt,
+      },
+    );
     if (error) throw databaseFailure();
     return data;
   }

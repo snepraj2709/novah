@@ -1,7 +1,6 @@
 import { notificationFunctionEnvironment } from '../_shared/environment.ts';
 import { createNotificationHandler } from '../_shared/notification-handler.ts';
 import { SupabaseNotificationRepository } from '../_shared/notification-supabase.ts';
-import { OpenAiProvider } from '../_shared/openai.ts';
 import { TelegramApiClient } from '../_shared/telegram-api.ts';
 
 export default {
@@ -13,7 +12,6 @@ export default {
         environment.supabaseUrl,
         environment.supabaseServiceRoleKey,
       ),
-      digestGenerator: new OpenAiProvider(environment.openAiApiKey),
       telegram: new TelegramApiClient(environment.telegramBotToken),
     })(request);
   },

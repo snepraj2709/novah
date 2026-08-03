@@ -11,6 +11,14 @@ type GeneratedCaptureNoteAtomic =
   GeneratedPublicSchema['Functions']['capture_note_atomic'];
 type GeneratedCaptureNoteAtomicForUser =
   GeneratedPublicSchema['Functions']['capture_note_atomic_for_user'];
+type GeneratedClaimDuePractices =
+  GeneratedPublicSchema['Functions']['claim_due_practices'];
+type GeneratedManagePractice =
+  GeneratedPublicSchema['Functions']['manage_practice'];
+type GeneratedManagePracticeCore =
+  GeneratedPublicSchema['Functions']['manage_practice_core'];
+type GeneratedManagePracticeForUser =
+  GeneratedPublicSchema['Functions']['manage_practice_for_user'];
 type GeneratedNotificationDigestNotes =
   GeneratedPublicSchema['Functions']['notification_digest_notes'];
 type GeneratedClaimDueReviews =
@@ -67,11 +75,40 @@ type CorrectedCaptureReturns<
   Omit<Returns[number], 'stored_summary'> & { stored_summary: string | null }
 >;
 
+type CorrectedPracticeReturns<
+  Returns extends Array<{
+    integrated_at: string;
+    last_practised_at: string;
+    next_check_in_on: string;
+    next_due_on: string;
+    paused_until: string;
+  }>,
+> = Array<
+  Omit<
+    Returns[number],
+    | 'integrated_at'
+    | 'last_practised_at'
+    | 'next_check_in_on'
+    | 'next_due_on'
+    | 'paused_until'
+  > & {
+    integrated_at: string | null;
+    last_practised_at: string | null;
+    next_check_in_on: string | null;
+    next_due_on: string | null;
+    paused_until: string | null;
+  }
+>;
+
 type CorrectedFunctions = Omit<
   GeneratedPublicSchema['Functions'],
   | 'capture_note_atomic'
   | 'capture_note_atomic_for_user'
+  | 'claim_due_practices'
   | 'claim_due_reviews'
+  | 'manage_practice'
+  | 'manage_practice_core'
+  | 'manage_practice_for_user'
   | 'match_notes'
   | 'match_notes_for_user'
   | 'notification_digest_notes'
@@ -90,6 +127,13 @@ type CorrectedFunctions = Omit<
       GeneratedCaptureNoteAtomicForUser['Returns']
     >;
   };
+  claim_due_practices: Omit<GeneratedClaimDuePractices, 'Returns'> & {
+    Returns: Array<
+      Omit<GeneratedClaimDuePractices['Returns'][number], 'source_title'> & {
+        source_title: string | null;
+      }
+    >;
+  };
   claim_due_reviews: Omit<GeneratedClaimDueReviews, 'Returns'> & {
     Returns: Array<
       Omit<
@@ -106,6 +150,17 @@ type CorrectedFunctions = Omit<
   };
   match_notes_for_user: Omit<GeneratedMatchNotesForUser, 'Returns'> & {
     Returns: MatchNoteRow[];
+  };
+  manage_practice: Omit<GeneratedManagePractice, 'Returns'> & {
+    Returns: CorrectedPracticeReturns<GeneratedManagePractice['Returns']>;
+  };
+  manage_practice_core: Omit<GeneratedManagePracticeCore, 'Returns'> & {
+    Returns: CorrectedPracticeReturns<GeneratedManagePracticeCore['Returns']>;
+  };
+  manage_practice_for_user: Omit<GeneratedManagePracticeForUser, 'Returns'> & {
+    Returns: CorrectedPracticeReturns<
+      GeneratedManagePracticeForUser['Returns']
+    >;
   };
   notification_digest_notes: Omit<
     GeneratedNotificationDigestNotes,

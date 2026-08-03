@@ -34,44 +34,29 @@ export interface TelegramCallbackQuery {
   data: string;
 }
 
-export interface TelegramTodayNote {
-  noteType: string;
-  originalText: string;
-}
-
-export interface TelegramDueReview {
-  eventId: string;
-  stage: number;
-  sourceTitle: string | null;
-}
-
-export interface TelegramReviewReveal {
+export interface TelegramPractice {
+  noteId: string;
   originalText: string;
   sourceTitle: string | null;
+  nextDueOn: string;
 }
 
 export interface TelegramSettings {
   timezone: string;
-  digestTime: string;
-  reviewTime: string;
+  practiceTime: string;
 }
 
 export interface TelegramRepository {
   claimUpdate(updateId: number): Promise<boolean>;
   userIdForChat(chatId: number): Promise<string | null>;
   consumeLinkCode(codeHash: string, chatId: number): Promise<string | null>;
-  todayNotes(userId: string): Promise<TelegramTodayNote[]>;
-  dueReviews(userId: string): Promise<TelegramDueReview[]>;
+  practices(userId: string): Promise<TelegramPractice[]>;
   settings(userId: string): Promise<TelegramSettings>;
-  revealReview(
+  managePractice(
     userId: string,
-    eventId: string,
-  ): Promise<TelegramReviewReveal | null>;
-  recordReviewFeedback(
-    userId: string,
-    eventId: string,
-    status: 'remembered' | 'partial' | 'missed' | 'skipped',
-  ): Promise<boolean>;
+    action: 'activate' | 'reread',
+    noteId: string,
+  ): Promise<void>;
 }
 
 export interface TelegramKnowledgeService {

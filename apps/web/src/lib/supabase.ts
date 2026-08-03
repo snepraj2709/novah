@@ -21,5 +21,5 @@ export const supabase = createClient<Database>(
 
 export function clearDeletedAccountSession(): void {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
-  window.location.replace('/today');
+  window.location.replace('/practice');
 }

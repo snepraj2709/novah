@@ -5,22 +5,19 @@ import {
   MAX_TELEGRAM_VOICE_DURATION_SECONDS,
   TELEGRAM_LINK_CODE_LENGTH,
 } from '../../../packages/shared/src/constants/index.ts';
-import { reviewCue } from '../../../packages/shared/src/review-cue.ts';
 import { ApiError, errorResponse } from './errors.ts';
 import { parseJson } from './http.ts';
 import { parseTelegramUpdate } from './telegram-contracts.ts';
 import { hashTelegramLinkCode } from './telegram-link-handler.ts';
-import { parseReviewCallback, reviewCallbackData } from './review-callbacks.ts';
 import type {
   TelegramCallbackQuery,
-  TelegramDueReview,
   TelegramGateway,
   TelegramKnowledgeService,
   TelegramMessage,
   TelegramMessageOptions,
+  TelegramPractice,
   TelegramRepository,
   TelegramSettings,
-  TelegramTodayNote,
   VoiceTranscriber,
 } from './telegram-types.ts';
 
@@ -28,6 +25,8 @@ const LINK_CODE_PATTERN = new RegExp(
   `^[A-HJ-NP-Z2-9]{${TELEGRAM_LINK_CODE_LENGTH}}$`,
   'u',
 );
+const PRACTICE_CALLBACK_PATTERN =
+  /^p:r:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
 const TELEGRAM_NOTE_PREVIEW_LENGTH = 240;
 
 export interface TelegramWebhookDependencies {
@@ -51,16 +50,15 @@ function parseCommand(text: string | undefined): ParsedCommand | null {
   const match = text
     ?.trim()
     .match(/^\/([a-z][a-z0-9_]*)(?:@[a-z0-9_]+)?(?:\s+([\s\S]*))?$/iu);
-  if (!match) return null;
-  return {
-    name: match[1].toLowerCase(),
-    argument: match[2]?.trim() ?? '',
-  };
+  return match
+    ? { name: match[1].toLowerCase(), argument: match[2]?.trim() ?? '' }
+    : null;
 }
 
 function boundedMessage(text: string): string {
-  if (text.length <= MAX_TELEGRAM_MESSAGE_LENGTH) return text;
-  return `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
+  return text.length <= MAX_TELEGRAM_MESSAGE_LENGTH
+    ? text
+    : `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
 }
 
 export function telegramNotePreview(text: string): string {
@@ -69,15 +67,14 @@ export function telegramNotePreview(text: string): string {
     .replace(/\s+/gu, ' ')
     .trim();
   const characters = Array.from(normalized);
-  if (characters.length <= TELEGRAM_NOTE_PREVIEW_LENGTH) {
-    return normalized || 'Untitled note';
-  }
-  return `${characters.slice(0, TELEGRAM_NOTE_PREVIEW_LENGTH - 1).join('')}…`;
+  return characters.length <= TELEGRAM_NOTE_PREVIEW_LENGTH
+    ? normalized || 'Untitled note'
+    : `${characters.slice(0, TELEGRAM_NOTE_PREVIEW_LENGTH - 1).join('')}…`;
 }
 
 function linkInstructions(): string {
   return [
-    'Link this private chat to Novah before saving or searching.',
+    'Link this private chat to Novah before saving or finding notes.',
     'Open Novah Settings, generate a code, then send /link CODE within ten minutes.',
   ].join('\n');
 }
@@ -87,31 +84,7 @@ function commandHelp(linked: boolean): string {
   return [
     'Novah is linked.',
     'Send text or a voice note to save it.',
-    'Commands: /search QUERY, /today, /review, /settings.',
-  ].join('\n');
-}
-
-function todayMessage(notes: TelegramTodayNote[]): string {
-  if (notes.length === 0) return 'You have not saved any notes today.';
-  return [
-    'What you kept today',
-    '',
-    ...notes.map(
-      (note, index) =>
-        `${index + 1}. ${note.noteType}: ${telegramNotePreview(note.originalText)}`,
-    ),
-  ].join('\n');
-}
-
-function reviewMessage(reviews: TelegramDueReview[]): string {
-  if (reviews.length === 0) return 'No reviews are due today.';
-  return [
-    'Reviews due',
-    '',
-    ...reviews.map(
-      (review, index) =>
-        `${index + 1}. Stage ${review.stage}\n${reviewCue(review.sourceTitle)}`,
-    ),
+    'Commands: /find QUERY, /practice, /settings, /help.',
   ].join('\n');
 }
 
@@ -119,13 +92,12 @@ function settingsMessage(settings: TelegramSettings): string {
   return [
     'Novah settings',
     `Timezone: ${settings.timezone}`,
-    `Daily digest: ${settings.digestTime.slice(0, 5)}`,
-    `Review time: ${settings.reviewTime.slice(0, 5)}`,
-    'Change these settings from the Novah dashboard when it is available.',
+    `Practice time: ${settings.practiceTime.slice(0, 5)}`,
+    'Change these settings in the Novah web app.',
   ].join('\n');
 }
 
-function searchMessage(
+function findMessage(
   result: Awaited<ReturnType<TelegramKnowledgeService['search']>>,
 ): string {
   if (result.matches.length === 0) {
@@ -141,7 +113,6 @@ function searchMessage(
       ),
     ].join('\n');
   }
-
   const matchById = new Map(
     result.matches.map((match) => [match.noteId, match]),
   );
@@ -152,6 +123,17 @@ function searchMessage(
       : [];
   });
   return [result.answer, '', 'Sources', ...sources].join('\n');
+}
+
+function practiceMessage(practice: TelegramPractice): string {
+  return [
+    'Practice',
+    '',
+    practice.originalText,
+    ...(practice.sourceTitle ? ['', `Source: ${practice.sourceTitle}`] : []),
+    '',
+    `Next due: ${practice.nextDueOn}`,
+  ].join('\n');
 }
 
 async function digestText(value: string): Promise<Uint8Array> {
@@ -209,73 +191,19 @@ async function dispatchCallback(
   dependencies: TelegramWebhookDependencies,
 ): Promise<void> {
   if (callback.chatType !== 'private' || callback.chatId <= 0) return;
-  const parsed = parseReviewCallback(callback.data);
   const userId = await dependencies.repository.userIdForChat(callback.chatId);
-  if (!parsed || !userId) {
+  const noteId = callback.data.match(PRACTICE_CALLBACK_PATTERN)?.[1];
+  if (!userId || !noteId) {
     await dependencies.telegram.answerCallbackQuery(
       callback.id,
-      'This review action is unavailable.',
+      'This Practice action is unavailable.',
     );
     return;
   }
-
-  if (parsed.action === 'reveal') {
-    const revealed = await dependencies.repository.revealReview(
-      userId,
-      parsed.eventId,
-    );
-    if (!revealed) {
-      await dependencies.telegram.answerCallbackQuery(
-        callback.id,
-        'This review is no longer active.',
-      );
-      return;
-    }
-    await send(
-      dependencies.telegram,
-      callback.chatId,
-      [
-        revealed.sourceTitle ? `Source: ${revealed.sourceTitle}` : 'Saved note',
-        '',
-        revealed.originalText,
-        '',
-        'How well did you remember it?',
-      ].join('\n'),
-      {
-        inlineKeyboard: [
-          [
-            {
-              text: 'Remembered',
-              callbackData: reviewCallbackData(parsed.eventId, 'remembered'),
-            },
-            {
-              text: 'Partly',
-              callbackData: reviewCallbackData(parsed.eventId, 'partial'),
-            },
-            {
-              text: 'Missed',
-              callbackData: reviewCallbackData(parsed.eventId, 'missed'),
-            },
-          ],
-        ],
-      },
-    );
-    await dependencies.telegram.answerCallbackQuery(
-      callback.id,
-      'Note revealed.',
-    );
-    return;
-  }
-
-  const status = parsed.action === 'skip' ? 'skipped' : parsed.action;
-  const saved = await dependencies.repository.recordReviewFeedback(
-    userId,
-    parsed.eventId,
-    status,
-  );
+  await dependencies.repository.managePractice(userId, 'reread', noteId);
   await dependencies.telegram.answerCallbackQuery(
     callback.id,
-    saved ? 'Review recorded.' : 'This review was already answered.',
+    'Reread recorded.',
   );
 }
 
@@ -343,7 +271,6 @@ async function captureVoice(
     );
     return;
   }
-
   let audio: Uint8Array | null = null;
   let transcription: string;
   try {
@@ -359,7 +286,6 @@ async function captureVoice(
     audio?.fill(0);
     audio = null;
   }
-
   const result = await dependencies.knowledge.capture(userId, {
     originalText: transcription,
     sourceTitle: 'Telegram voice note',
@@ -400,18 +326,16 @@ async function dispatchMessage(
     await send(dependencies.telegram, message.chatId, linkInstructions());
     return;
   }
-
   if (command?.name === 'help') {
     await send(dependencies.telegram, message.chatId, commandHelp(true));
     return;
   }
-
-  if (command?.name === 'search') {
+  if (command?.name === 'find') {
     if (!command.argument) {
       await send(
         dependencies.telegram,
         message.chatId,
-        'Use /search followed by a question.',
+        'Use /find followed by a question.',
       );
       return;
     }
@@ -419,23 +343,26 @@ async function dispatchMessage(
       query: command.argument,
       limit: 5,
     });
-    await send(dependencies.telegram, message.chatId, searchMessage(result));
+    await send(dependencies.telegram, message.chatId, findMessage(result));
     return;
   }
-  if (command?.name === 'today') {
-    await send(
-      dependencies.telegram,
-      message.chatId,
-      todayMessage(await dependencies.repository.todayNotes(linkedUserId)),
-    );
-    return;
-  }
-  if (command?.name === 'review') {
-    await send(
-      dependencies.telegram,
-      message.chatId,
-      reviewMessage(await dependencies.repository.dueReviews(linkedUserId)),
-    );
+  if (command?.name === 'practice') {
+    const practices = await dependencies.repository.practices(linkedUserId);
+    if (practices.length === 0) {
+      await send(dependencies.telegram, message.chatId, 'No active practices.');
+    }
+    for (const practice of practices) {
+      await send(
+        dependencies.telegram,
+        message.chatId,
+        practiceMessage(practice),
+        {
+          inlineKeyboard: [
+            [{ text: 'Reread', callbackData: `p:r:${practice.noteId}` }],
+          ],
+        },
+      );
+    }
     return;
   }
   if (command?.name === 'settings') {
@@ -461,7 +388,7 @@ async function dispatchMessage(
   await send(
     dependencies.telegram,
     message.chatId,
-    'Send text, a voice note, or /search followed by a question.',
+    'Send text, a voice note, or /find followed by a question.',
   );
 }
 
@@ -476,13 +403,11 @@ export async function handleTelegramWebhook(
   if (!secretMatches) {
     throw new ApiError(401, 'unauthorized', 'Webhook authentication failed.');
   }
-
   const update = parseTelegramUpdate(
     await parseJson(request, MAX_TELEGRAM_UPDATE_BYTES),
   );
-  if (!update) {
+  if (!update)
     throw new ApiError(400, 'bad_request', 'Telegram update is invalid.');
-  }
   if (!(await dependencies.repository.claimUpdate(update.updateId))) {
     return acknowledgement(true);
   }

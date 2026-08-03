@@ -192,23 +192,12 @@ export function SettingsPage({
             </select>
           </label>
           <label>
-            Daily digest
+            Practice time
             <input
               type="time"
-              value={profile.digestTime}
+              value={profile.practiceTime}
               onChange={(event) =>
-                setProfile({ ...profile, digestTime: event.target.value })
-              }
-              required
-            />
-          </label>
-          <label>
-            Review packet
-            <input
-              type="time"
-              value={profile.reviewTime}
-              onChange={(event) =>
-                setProfile({ ...profile, reviewTime: event.target.value })
+                setProfile({ ...profile, practiceTime: event.target.value })
               }
               required
             />
@@ -233,8 +222,8 @@ export function SettingsPage({
         </div>
         {profile.telegramConnected ? (
           <p>
-            Your bot can receive captures and send scheduled digests and
-            reviews.
+            Your bot can receive captures, find notes, and send due Practice
+            messages.
           </p>
         ) : (
           <>
@@ -267,8 +256,8 @@ export function SettingsPage({
         <p className="eyebrow">Danger zone</p>
         <h2 id="danger-title">Delete your account</h2>
         <p>
-          Permanently remove your account, notes, digests, reviews, and delivery
-          settings. Export your library first.
+          Permanently remove your account, notes, Practice data, and delivery
+          settings. Export your Collection first.
         </p>
         {!showDelete ? (
           <button

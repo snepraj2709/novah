@@ -8,42 +8,26 @@ import type {
   StoredCapture,
 } from './types.ts';
 import type {
-  TelegramDueReview,
+  TelegramPractice,
   TelegramRepository,
-  TelegramReviewReveal,
   TelegramSettings,
-  TelegramTodayNote,
 } from './telegram-types.ts';
 
 function databaseFailure(message: string): ApiError {
   return new ApiError(500, 'internal_error', message, true);
 }
 
-function localDate(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value;
-  return `${value('year')}-${value('month')}-${value('day')}`;
-}
-
 export class SupabaseTelegramRepository implements TelegramRepository {
   private readonly client: SupabaseClient<Database>;
-  private readonly now: () => Date;
 
   constructor(
     url: string,
     serviceRoleKey: string,
-    now: () => Date = () => new Date(),
+    _now: () => Date = () => new Date(),
   ) {
     this.client = createClient<Database>(url, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    this.now = now;
   }
 
   noteRepository(userId: string): NoteRepository {
@@ -87,65 +71,41 @@ export class SupabaseTelegramRepository implements TelegramRepository {
   private async profile(userId: string) {
     const { data, error } = await this.client
       .from('profiles')
-      .select('timezone, digest_time, review_time')
+      .select('timezone, practice_time')
       .eq('user_id', userId)
       .single();
     if (error || !data) throw databaseFailure('Profile could not be loaded.');
     return data;
   }
 
-  async todayNotes(userId: string): Promise<TelegramTodayNote[]> {
-    const profile = await this.profile(userId);
-    const today = localDate(this.now(), profile.timezone);
-    const { data, error } = await this.client
+  async practices(userId: string): Promise<TelegramPractice[]> {
+    const { data: practices, error } = await this.client
+      .from('note_practices')
+      .select('note_id, next_due_on')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('next_due_on', { ascending: true });
+    if (error) throw databaseFailure('Practices could not be loaded.');
+    if (!practices?.length) return [];
+    const { data: notes, error: noteError } = await this.client
       .from('notes')
-      .select('note_type, original_text, captured_at')
+      .select('id, original_text, source_title')
       .eq('user_id', userId)
-      .order('captured_at', { ascending: false })
-      .limit(100);
-    if (error) throw databaseFailure("Today's notes could not be loaded.");
-    return (data ?? [])
-      .filter(
-        (note) =>
-          localDate(new Date(note.captured_at), profile.timezone) === today,
-      )
-      .slice(0, 5)
-      .map((note) => ({
-        noteType: note.note_type,
-        originalText: note.original_text,
-      }));
-  }
-
-  async dueReviews(userId: string): Promise<TelegramDueReview[]> {
-    const profile = await this.profile(userId);
-    const today = localDate(this.now(), profile.timezone);
-    const { data: reviews, error } = await this.client
-      .from('review_events')
-      .select('id, note_id, stage')
-      .eq('user_id', userId)
-      .in('status', ['pending', 'sent'])
-      .lte('due_on', today)
-      .order('due_on', { ascending: true })
-      .limit(5);
-    if (error) throw databaseFailure('Reviews could not be loaded.');
-    if (!reviews?.length) return [];
-
-    const noteIds = [...new Set(reviews.map((review) => review.note_id))];
-    const { data: notes, error: notesError } = await this.client
-      .from('notes')
-      .select('id, source_title')
-      .eq('user_id', userId)
-      .in('id', noteIds);
-    if (notesError) throw databaseFailure('Reviews could not be loaded.');
+      .in(
+        'id',
+        practices.map((practice) => practice.note_id),
+      );
+    if (noteError) throw databaseFailure('Practices could not be loaded.');
     const byId = new Map((notes ?? []).map((note) => [note.id, note]));
-    return reviews.flatMap((review) => {
-      const note = byId.get(review.note_id);
-      return note
+    return practices.flatMap((practice) => {
+      const note = byId.get(practice.note_id);
+      return note && practice.next_due_on
         ? [
             {
-              eventId: review.id,
-              stage: review.stage,
+              noteId: note.id,
+              originalText: note.original_text,
               sourceTitle: note.source_title,
+              nextDueOn: practice.next_due_on,
             },
           ]
         : [];
@@ -156,41 +116,21 @@ export class SupabaseTelegramRepository implements TelegramRepository {
     const profile = await this.profile(userId);
     return {
       timezone: profile.timezone,
-      digestTime: profile.digest_time,
-      reviewTime: profile.review_time,
+      practiceTime: profile.practice_time,
     };
   }
 
-  async revealReview(
+  async managePractice(
     userId: string,
-    eventId: string,
-  ): Promise<TelegramReviewReveal | null> {
-    const { data, error } = await this.client.rpc('reveal_review_for_user', {
+    action: 'activate' | 'reread',
+    noteId: string,
+  ): Promise<void> {
+    const { error } = await this.client.rpc('manage_practice_for_user', {
       input_user_id: userId,
-      input_event_id: eventId,
+      input_action: action,
+      input_note_id: noteId,
     });
-    if (error) throw databaseFailure('Review could not be revealed.');
-    const row = data?.[0];
-    return row
-      ? { originalText: row.original_text, sourceTitle: row.source_title }
-      : null;
-  }
-
-  async recordReviewFeedback(
-    userId: string,
-    eventId: string,
-    status: 'remembered' | 'partial' | 'missed' | 'skipped',
-  ): Promise<boolean> {
-    const { data, error } = await this.client.rpc(
-      'record_review_feedback_for_user',
-      {
-        input_user_id: userId,
-        input_event_id: eventId,
-        input_status: status,
-      },
-    );
-    if (error) throw databaseFailure('Review feedback could not be saved.');
-    return data;
+    if (error) throw databaseFailure('Practice could not be updated.');
   }
 }
 
@@ -214,20 +154,10 @@ class SupabaseServiceNoteRepository implements NoteRepository {
       .maybeSingle();
     if (error) throw databaseFailure('Capture could not be checked.');
     if (!note) return null;
-    const { data: review, error: reviewError } = await this.client
-      .from('review_events')
-      .select('due_on')
-      .eq('user_id', this.userId)
-      .eq('note_id', note.id)
-      .eq('stage', 1)
-      .single();
-    if (reviewError || !review)
-      throw databaseFailure('Capture could not be checked.');
     return {
       id: note.id,
       originalText: note.original_text,
       noteType: note.note_type,
-      firstReviewDate: review.due_on,
       created: false,
     };
   }
@@ -256,7 +186,6 @@ class SupabaseServiceNoteRepository implements NoteRepository {
       id: row.note_id,
       originalText: row.stored_original_text,
       noteType: row.stored_note_type,
-      firstReviewDate: row.first_review_date,
       created: row.created,
     };
   }

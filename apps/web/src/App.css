@@ -438,6 +438,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.metric-card {
+  min-width: 9rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0.9rem 1.1rem;
+  background: #fffdf7;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.metric-card strong {
+  font-size: 1.35rem;
+}
 .source-line a {
   color: var(--green);
 }

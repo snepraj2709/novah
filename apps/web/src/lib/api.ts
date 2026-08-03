@@ -1,6 +1,8 @@
 import {
   deleteAccountRequestSchema,
   deleteAccountResponseSchema,
+  managePracticeRequestSchema,
+  managePracticeResponseSchema,
   searchNotesRequestSchema,
   searchNotesResponseSchema,
   telegramLinkCodeRequestSchema,
@@ -8,6 +10,8 @@ import {
   type SearchNotesRequest,
   type SearchNotesResponse,
   type TelegramLinkCodeResponse,
+  type ManagePracticeRequest,
+  type ManagePracticeResponse,
 } from '@novah/shared/contracts';
 
 import { getPublicWebConfig } from './config.ts';
@@ -28,7 +32,11 @@ export class WebApiError extends Error {
 }
 
 async function invokeFunction(
-  functionName: 'search-notes' | 'telegram-link-code' | 'delete-account',
+  functionName:
+    | 'search-notes'
+    | 'telegram-link-code'
+    | 'delete-account'
+    | 'manage-practice',
   body: unknown,
 ): Promise<unknown> {
   const { data, error } = await supabase.auth.getSession();
@@ -104,4 +112,14 @@ export async function deleteAccount(): Promise<void> {
     deleteAccountRequestSchema.parse({}),
   );
   deleteAccountResponseSchema.parse(payload);
+}
+
+export async function managePractice(
+  request: ManagePracticeRequest,
+): Promise<ManagePracticeResponse> {
+  const payload = await invokeFunction(
+    'manage-practice',
+    managePracticeRequestSchema.parse(request),
+  );
+  return managePracticeResponseSchema.parse(payload);
 }

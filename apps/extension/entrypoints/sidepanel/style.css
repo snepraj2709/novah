@@ -236,6 +236,21 @@ button:disabled {
 .draft-picker {
   font-weight: 500;
 }
+
+.capture-details {
+  border: 1px solid #d8d3c8;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.capture-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.capture-details[open] summary {
+  margin-bottom: 12px;
+}
 .source-grid {
   display: grid;
   gap: 15px;

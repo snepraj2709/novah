@@ -131,6 +131,36 @@ export function NoteDetailDrawer({
         </header>
 
         <div className="note-detail-content">
+          <section aria-labelledby={`${titleId}-practice`}>
+            <h3 id={`${titleId}-practice`}>Practice</h3>
+            {note.practice ? (
+              <dl>
+                <div>
+                  <dt>Status</dt>
+                  <dd>
+                    {note.practice.status === 'active'
+                      ? 'Practising'
+                      : note.practice.status}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Interval</dt>
+                  <dd>{note.practice.intervalDays} day</dd>
+                </div>
+                {note.practice.nextDueOn && (
+                  <div>
+                    <dt>Next due</dt>
+                    <dd>{note.practice.nextDueOn}</dd>
+                  </div>
+                )}
+              </dl>
+            ) : (
+              <p>
+                Saved only. Choose Keep this with me from Collection to begin.
+              </p>
+            )}
+          </section>
+
           <section aria-labelledby={`${titleId}-full-note`}>
             <h3 className="eyebrow" id={`${titleId}-full-note`}>
               Full note

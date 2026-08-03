@@ -2,124 +2,57 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  dailyDigestSchema,
-  type DailyDigest,
-} from '../../../packages/shared/src/contracts/index.ts';
-import { reviewCue } from '../../../packages/shared/src/review-cue.ts';
-import {
   createNotificationHandler,
+  practiceCallbackData,
   processNotifications,
   scheduleWindow,
 } from '../_shared/notification-handler.ts';
 import type {
-  ClaimedReview,
-  DigestEvidenceNote,
-  DigestGenerator,
+  ClaimedPractice,
   NotificationProfile,
   NotificationRepository,
 } from '../_shared/notification-types.ts';
-import { reviewCallbackData } from '../_shared/review-callbacks.ts';
-import { OpenAiProvider } from '../_shared/openai.ts';
-import { createTelegramWebhookHandler } from '../_shared/telegram-handler.ts';
-import type {
-  TelegramGateway,
-  TelegramKnowledgeService,
-  TelegramRepository,
-  VoiceTranscriber,
-} from '../_shared/telegram-types.ts';
 
 const USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const NOTE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const EVENT_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const CHAT_ID = 700000000001;
-const CRON_SECRET = 'synthetic-cron-secret';
+const SECRET = 'synthetic-cron-secret';
 
-class NotificationStore implements NotificationRepository {
+class Repository implements NotificationRepository {
   profileReads = 0;
   profileRows: NotificationProfile[] = [];
-  notes: DigestEvidenceNote[] = [];
-  reviews: ClaimedReview[] = [];
-  digestClaims = new Set<string>();
-  reviewClaimed = false;
-  persisted: DailyDigest[] = [];
-  digestSent: string[] = [];
-  reviewSent: string[][] = [];
-  digestMarkResult = true;
-  reviewMarkCount: number | null = null;
+  practices: ClaimedPractice[] = [];
+  claimedDays = new Set<string>();
+  marks: Array<{ noteId: string; localDate: string }> = [];
+  markResult = true;
 
-  async profiles(): Promise<NotificationProfile[]> {
+  async profiles() {
     this.profileReads += 1;
     return this.profileRows;
   }
-
-  async digestEvidence(): Promise<DigestEvidenceNote[]> {
-    return this.notes;
-  }
-
-  async claimDigest(
+  async claimDuePractices(
     _userId: string,
-    digestDate: string,
-    _noteIds: string[],
-    content: DailyDigest,
-  ): Promise<string | null> {
-    if (this.digestClaims.has(digestDate)) return null;
-    this.digestClaims.add(digestDate);
-    this.persisted.push(content);
-    return 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    localDate: string,
+  ): Promise<ClaimedPractice[]> {
+    if (this.claimedDays.has(localDate)) return [];
+    this.claimedDays.add(localDate);
+    return this.practices;
   }
-
-  async markDigestSent(digestId: string): Promise<boolean> {
-    this.digestSent.push(digestId);
-    return this.digestMarkResult;
-  }
-
-  async claimReviews(): Promise<ClaimedReview[]> {
-    if (this.reviewClaimed) return [];
-    this.reviewClaimed = true;
-    return this.reviews;
-  }
-
-  async markReviewsSent(eventIds: string[]): Promise<number> {
-    this.reviewSent.push(eventIds);
-    return this.reviewMarkCount ?? eventIds.length;
+  async markPracticeSent(
+    _userId: string,
+    noteId: string,
+    localDate: string,
+  ): Promise<boolean> {
+    this.marks.push({ noteId, localDate });
+    return this.markResult;
   }
 }
 
-class Generator implements DigestGenerator {
-  calls = 0;
-
-  async generateDigest(input: {
-    captureCount: number;
-    sourceCount: number;
-    notes: DigestEvidenceNote[];
-  }): Promise<DailyDigest> {
-    this.calls += 1;
-    return {
-      captureCount: input.captureCount,
-      sourceCount: input.sourceCount,
-      themes: [
-        {
-          title: 'Synthetic theme',
-          noteIds: input.notes.slice(0, 2).map((note) => note.noteId),
-        },
-      ],
-      connection: {
-        text: 'The notes share a bounded synthetic connection.',
-        noteIds: input.notes.map((note) => note.noteId),
-      },
-      reflectionQuestion: 'What connects these ideas?',
-    };
-  }
-}
-
-class NotificationTelegram {
+class Telegram {
   messages: Array<{ chatId: number; text: string; options?: unknown }> = [];
-
-  async sendMessage(
-    chatId: number,
-    text: string,
-    options?: unknown,
-  ): Promise<void> {
+  fail = false;
+  async sendMessage(chatId: number, text: string, options?: unknown) {
+    if (this.fail) throw new Error('synthetic Telegram failure');
     this.messages.push({ chatId, text, options });
   }
 }
@@ -131,526 +64,165 @@ function profile(
     userId: USER_ID,
     chatId: CHAT_ID,
     timezone: 'Asia/Kolkata',
-    digestTime: '21:00:00',
-    reviewTime: '09:00:00',
+    practiceTime: '09:00:00',
     ...overrides,
   };
 }
 
-function note(noteId = NOTE_ID): DigestEvidenceNote {
+function practice(noteId = NOTE_ID): ClaimedPractice {
   return {
     noteId,
-    originalText: 'Synthetic original note.',
-    personalContext: null,
+    originalText: 'Exact synthetic original.',
     sourceTitle: 'Synthetic source',
-    sourceUrl: null,
+    nextDueOn: '2026-08-03',
   };
 }
 
-describe('timezone-aware notification windows', () => {
-  it('selects Asia/Kolkata and UTC windows by local time', () => {
+describe('Practice notification scheduling', () => {
+  it('uses the account timezone and ten-minute Practice window', () => {
     assert.deepEqual(
-      scheduleWindow(new Date('2026-08-02T15:35:00.000Z'), profile()),
-      {
-        localDate: '2026-08-02',
-        digestDate: '2026-08-02',
-        reviewDate: null,
-      },
+      scheduleWindow(new Date('2026-08-03T03:35:00.000Z'), profile()),
+      { localDate: '2026-08-03', practiceDate: '2026-08-03' },
     );
     assert.equal(
-      scheduleWindow(
-        new Date('2026-08-02T09:05:00.000Z'),
-        profile({ timezone: 'UTC' }),
-      ).reviewDate,
-      '2026-08-02',
-    );
-  });
-
-  it('handles a daylight-saving timezone and a midnight-crossing window', () => {
-    assert.equal(
-      scheduleWindow(
-        new Date('2026-11-01T06:05:00.000Z'),
-        profile({ timezone: 'America/New_York', digestTime: '01:00:00' }),
-      ).digestDate,
-      '2026-11-01',
-    );
-    assert.equal(
-      scheduleWindow(
-        new Date('2026-08-03T00:02:00.000Z'),
-        profile({ timezone: 'UTC', digestTime: '23:55:00' }),
-      ).digestDate,
-      '2026-08-02',
-    );
-  });
-
-  it('delivers a nonexistent spring-forward time at the first valid local minute', () => {
-    const springForward = profile({
-      timezone: 'America/New_York',
-      digestTime: '02:30:00',
-    });
-    assert.equal(
-      scheduleWindow(new Date('2026-03-08T07:00:00.000Z'), springForward)
-        .digestDate,
-      '2026-03-08',
-    );
-    assert.equal(
-      scheduleWindow(new Date('2026-03-08T07:09:00.000Z'), springForward)
-        .digestDate,
-      '2026-03-08',
-    );
-    assert.equal(
-      scheduleWindow(new Date('2026-03-08T07:10:00.000Z'), springForward)
-        .digestDate,
+      scheduleWindow(new Date('2026-08-03T03:50:00.000Z'), profile())
+        .practiceDate,
       null,
     );
-  });
-});
-
-describe('digest and review delivery', () => {
-  it('uses a strict stored-false digest request and validates evidence IDs', async () => {
-    let requestBody: Record<string, unknown> = {};
-    const secondId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
-    const provider = new OpenAiProvider('synthetic-key', async (_url, init) => {
-      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
-      return Response.json({
-        output: [
-          {
-            content: [
-              {
-                type: 'output_text',
-                text: JSON.stringify({
-                  captureCount: 2,
-                  sourceCount: 1,
-                  themes: [
-                    {
-                      title: 'Synthetic theme',
-                      noteIds: [NOTE_ID, secondId],
-                    },
-                  ],
-                  connection: {
-                    text: 'A bounded connection.',
-                    noteIds: [NOTE_ID, secondId],
-                  },
-                  reflectionQuestion: 'What connects the two ideas?',
-                }),
-              },
-            ],
-          },
-        ],
-      });
-    });
-    const digest = await provider.generateDigest({
-      captureCount: 2,
-      sourceCount: 1,
-      notes: [note(), note(secondId)],
-    });
-    assert.equal(requestBody.store, false);
     assert.equal(
-      (requestBody.text as { format: { strict: boolean } }).format.strict,
-      true,
+      scheduleWindow(
+        new Date('2026-08-03T09:05:00.000Z'),
+        profile({ timezone: 'UTC' }),
+      ).practiceDate,
+      '2026-08-03',
     );
-    assert.equal(JSON.stringify(requestBody).includes('uniqueItems'), false);
-    assert.equal(JSON.stringify(requestBody).includes('summary'), false);
-    assert.equal(JSON.stringify(requestBody).includes('recallPrompt'), false);
-    assert.deepEqual(digest.connection?.noteIds, [NOTE_ID, secondId]);
   });
 
-  it('rejects a recurring theme supported by only one note', () => {
+  it('delivers a nonexistent spring-forward Practice time at the first valid minute', () => {
     assert.equal(
-      dailyDigestSchema.safeParse({
-        captureCount: 2,
-        sourceCount: 1,
-        themes: [{ title: 'Unsupported recurrence', noteIds: [NOTE_ID] }],
-        connection: null,
-        reflectionQuestion: 'What connects these ideas?',
-      }).success,
-      false,
+      scheduleWindow(
+        new Date('2026-03-08T07:00:00.000Z'),
+        profile({
+          timezone: 'America/New_York',
+          practiceTime: '02:30:00',
+        }),
+      ).practiceDate,
+      '2026-03-08',
     );
   });
 
-  it('authenticates the Cron request before reading profiles', async () => {
-    const repository = new NotificationStore();
-    const handler = createNotificationHandler({
-      cronSecret: CRON_SECRET,
-      repository,
-      digestGenerator: new Generator(),
-      telegram: new NotificationTelegram(),
-    });
-    const denied = await handler(
-      new Request('http://localhost/process-notifications', { method: 'POST' }),
-    );
-    assert.equal(denied.status, 401);
-    assert.equal(repository.profileReads, 0);
-    const probe = await handler(
-      new Request('http://localhost/process-notifications', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${CRON_SECRET}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ probe: true }),
-      }),
-    );
-    assert.equal(probe.status, 200);
-    assert.deepEqual(await probe.json(), { ok: true, probe: true });
-    assert.equal(repository.profileReads, 0);
-    const allowed = await handler(
-      new Request('http://localhost/process-notifications', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${CRON_SECRET}` },
-      }),
-    );
-    assert.equal(allowed.status, 200);
-    assert.equal(repository.profileReads, 1);
-  });
-
-  it('sends nothing for a zero-note local day', async () => {
-    const repository = new NotificationStore();
+  it('sends due practices separately with exact notes and reread callbacks', async () => {
+    const repository = new Repository();
     repository.profileRows = [profile()];
-    const telegram = new NotificationTelegram();
+    repository.practices = [
+      practice(),
+      practice('cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
+    ];
+    const telegram = new Telegram();
     const result = await processNotifications({
-      cronSecret: CRON_SECRET,
+      cronSecret: SECRET,
       repository,
-      digestGenerator: new Generator(),
       telegram,
-      now: () => new Date('2026-08-02T15:35:00.000Z'),
+      now: () => new Date('2026-08-03T03:35:00.000Z'),
     });
-    assert.equal(result.digestsSent, 0);
-    assert.equal(repository.persisted.length, 0);
-    assert.equal(telegram.messages.length, 0);
+    assert.deepEqual(result, { practicesSent: 2, errors: 0 });
+    assert.equal(telegram.messages.length, 2);
+    assert.match(telegram.messages[0].text, /Exact synthetic original/u);
+    const options = telegram.messages[0].options as {
+      inlineKeyboard: Array<Array<{ callbackData: string }>>;
+    };
+    assert.equal(options.inlineKeyboard[0][0].callbackData, `p:r:${NOTE_ID}`);
+    assert.ok(practiceCallbackData(NOTE_ID).length <= 64);
   });
 
-  it('stores and sends a one-note digest without a false theme or connection', async () => {
-    const repository = new NotificationStore();
+  it('deduplicates repeated and concurrent runs for the same local day', async () => {
+    const repository = new Repository();
     repository.profileRows = [profile()];
-    repository.notes = [note()];
-    const generator = new Generator();
-    const telegram = new NotificationTelegram();
-    await processNotifications({
-      cronSecret: CRON_SECRET,
-      repository,
-      digestGenerator: generator,
-      telegram,
-      now: () => new Date('2026-08-02T15:35:00.000Z'),
-    });
-    assert.equal(generator.calls, 0);
-    assert.deepEqual(repository.persisted[0].themes, []);
-    assert.equal(repository.persisted[0].connection, null);
-    assert.equal(
-      repository.persisted[0].reflectionQuestion,
-      'Which idea from this note is most worth carrying into tomorrow?',
-    );
-    assert.doesNotMatch(telegram.messages[0].text, /Recurring theme/u);
-  });
-
-  it('uses a grounded deterministic digest when a day is too large for one model request', async () => {
-    const repository = new NotificationStore();
-    repository.profileRows = [profile()];
-    repository.notes = Array.from({ length: 101 }, (_, index) =>
-      note(`${String(index + 1).padStart(8, '0')}-0000-4000-8000-000000000000`),
-    );
-    const generator = new Generator();
-    const telegram = new NotificationTelegram();
-    const result = await processNotifications({
-      cronSecret: CRON_SECRET,
-      repository,
-      digestGenerator: generator,
-      telegram,
-      now: () => new Date('2026-08-02T15:35:00.000Z'),
-    });
-
-    assert.equal(result.digestsSent, 1);
-    assert.equal(generator.calls, 0);
-    assert.equal(repository.persisted[0].captureCount, 101);
-    assert.deepEqual(repository.persisted[0].themes, []);
-    assert.equal(repository.persisted[0].connection, null);
-  });
-
-  it('deduplicates repeated and concurrent processors', async () => {
-    const repository = new NotificationStore();
-    repository.profileRows = [profile()];
-    repository.notes = [note(), note('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee')];
-    const telegram = new NotificationTelegram();
+    repository.practices = [practice()];
+    const telegram = new Telegram();
     const dependencies = {
-      cronSecret: CRON_SECRET,
+      cronSecret: SECRET,
       repository,
-      digestGenerator: new Generator(),
       telegram,
-      now: () => new Date('2026-08-02T15:35:00.000Z'),
+      now: () => new Date('2026-08-03T03:35:00.000Z'),
     };
     await Promise.all([
       processNotifications(dependencies),
       processNotifications(dependencies),
     ]);
     await processNotifications(dependencies);
-    assert.equal(repository.persisted.length, 1);
-    assert.equal(repository.digestSent.length, 1);
     assert.equal(telegram.messages.length, 1);
+    assert.equal(repository.marks.length, 1);
   });
 
-  it('bounds notification work to five profiles at a time', async () => {
-    let active = 0;
-    let maximumActive = 0;
-    let evidenceCalls = 0;
-    let releaseEvidence!: () => void;
-    const evidenceGate = new Promise<void>((resolve) => {
-      releaseEvidence = resolve;
-    });
-    const repository: NotificationRepository = {
-      async profiles() {
-        return Array.from({ length: 6 }, (_, index) =>
-          profile({ userId: `synthetic-user-${index}` }),
-        );
-      },
-      async digestEvidence() {
-        evidenceCalls += 1;
-        active += 1;
-        maximumActive = Math.max(maximumActive, active);
-        await evidenceGate;
-        active -= 1;
-        return [];
-      },
-      async claimDigest() {
-        return null;
-      },
-      async markDigestSent() {
-        return false;
-      },
-      async claimReviews() {
-        return [];
-      },
-      async markReviewsSent() {
-        return 0;
-      },
-    };
-    const processing = processNotifications({
-      cronSecret: CRON_SECRET,
+  it('allows a still-due practice to be claimed on the next local day', async () => {
+    const repository = new Repository();
+    repository.profileRows = [profile()];
+    repository.practices = [practice()];
+    const telegram = new Telegram();
+    await processNotifications({
+      cronSecret: SECRET,
       repository,
-      digestGenerator: new Generator(),
-      telegram: new NotificationTelegram(),
-      now: () => new Date('2026-08-02T15:35:00.000Z'),
-    });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(evidenceCalls, 5);
-    assert.equal(maximumActive, 5);
-    releaseEvidence();
-    await processing;
-    assert.equal(evidenceCalls, 6);
-    assert.equal(maximumActive, 5);
-  });
-
-  it('groups claimed reviews into one packet with reveal and skip actions', async () => {
-    const repository = new NotificationStore();
-    repository.profileRows = [
-      profile({ digestTime: '21:00:00', reviewTime: '09:00:00' }),
-    ];
-    repository.reviews = [
-      {
-        eventId: EVENT_ID,
-        noteId: NOTE_ID,
-        stage: 1,
-        sourceTitle: `Synthetic\n\u0000 source ${'x'.repeat(200)}`,
-      },
-    ];
-    const telegram = new NotificationTelegram();
-    await Promise.all([
-      processNotifications({
-        cronSecret: CRON_SECRET,
-        repository,
-        digestGenerator: new Generator(),
-        telegram,
-        now: () => new Date('2026-08-02T03:35:00.000Z'),
-      }),
-      processNotifications({
-        cronSecret: CRON_SECRET,
-        repository,
-        digestGenerator: new Generator(),
-        telegram,
-        now: () => new Date('2026-08-02T03:35:00.000Z'),
-      }),
-    ]);
-    assert.equal(telegram.messages.length, 1);
-    assert.equal(repository.reviewSent.length, 1);
-    assert.match(
-      telegram.messages[0].text,
-      /Stage 1\nWhat do you remember from Synthetic source x+…\?/u,
-    );
-    assert.ok(telegram.messages[0].text.length <= 4_096);
-    assert.match(JSON.stringify(telegram.messages[0].options), /Reveal 1/u);
-    assert.match(JSON.stringify(telegram.messages[0].options), /Skip 1/u);
-  });
-
-  it('does not report delivery when sent-state persistence is incomplete', async () => {
-    const repository = new NotificationStore();
-    repository.profileRows = [
-      profile({ digestTime: '09:00:00', reviewTime: '09:00:00' }),
-    ];
-    repository.notes = [note()];
-    repository.reviews = [
-      {
-        eventId: EVENT_ID,
-        noteId: NOTE_ID,
-        stage: 1,
-        sourceTitle: 'Synthetic source',
-      },
-    ];
-    repository.digestMarkResult = false;
-    repository.reviewMarkCount = 0;
-    const result = await processNotifications({
-      cronSecret: CRON_SECRET,
-      repository,
-      digestGenerator: new Generator(),
-      telegram: new NotificationTelegram(),
-      now: () => new Date('2026-08-02T03:35:00.000Z'),
-    });
-    assert.deepEqual(result, {
-      profilesChecked: 1,
-      digestsSent: 0,
-      reviewPacketsSent: 0,
-      errors: 2,
-    });
-  });
-
-  it('marks and counts each review packet independently', async () => {
-    const repository = new NotificationStore();
-    repository.profileRows = [profile({ reviewTime: '09:00:00' })];
-    repository.reviews = Array.from({ length: 9 }, (_, index) => ({
-      eventId: `${String(index + 1).padStart(8, '0')}-0000-4000-8000-000000000000`,
-      noteId: NOTE_ID,
-      stage: (index % 5) + 1,
-      sourceTitle: index === 0 ? null : 'Synthetic source',
-    }));
-    const telegram = new NotificationTelegram();
-    const result = await processNotifications({
-      cronSecret: CRON_SECRET,
-      repository,
-      digestGenerator: new Generator(),
       telegram,
-      now: () => new Date('2026-08-02T03:35:00.000Z'),
+      now: () => new Date('2026-08-03T03:35:00.000Z'),
     });
-    assert.equal(result.reviewPacketsSent, 2);
+    await processNotifications({
+      cronSecret: SECRET,
+      repository,
+      telegram,
+      now: () => new Date('2026-08-04T03:35:00.000Z'),
+    });
     assert.deepEqual(
-      repository.reviewSent.map((eventIds) => eventIds.length),
-      [8, 1],
-    );
-    assert.match(
-      telegram.messages[0].text,
-      /What do you remember from this note\?/u,
+      repository.marks.map((mark) => mark.localDate),
+      ['2026-08-03', '2026-08-04'],
     );
   });
-});
 
-describe('deterministic review cues', () => {
-  it('normalizes and bounds source titles with a source-free fallback', () => {
-    assert.equal(
-      reviewCue('  A\n\t\u0000 source  '),
-      'What do you remember from A source?',
-    );
-    assert.equal(reviewCue(null), 'What do you remember from this note?');
-    assert.ok(Array.from(reviewCue('x'.repeat(1_000))).length <= 147);
-  });
-});
-
-class CallbackRepository implements TelegramRepository {
-  claimed = new Set<number>();
-  feedback: Array<{ eventId: string; status: string }> = [];
-
-  async claimUpdate(updateId: number): Promise<boolean> {
-    if (this.claimed.has(updateId)) return false;
-    this.claimed.add(updateId);
-    return true;
-  }
-  async userIdForChat(): Promise<string | null> {
-    return USER_ID;
-  }
-  async consumeLinkCode(): Promise<string | null> {
-    return null;
-  }
-  async todayNotes() {
-    return [];
-  }
-  async dueReviews() {
-    return [];
-  }
-  async settings() {
-    return { timezone: 'UTC', digestTime: '21:00:00', reviewTime: '09:00:00' };
-  }
-  async revealReview(_userId: string, eventId: string) {
-    return eventId === EVENT_ID
-      ? {
-          originalText: 'Synthetic original note.',
-          sourceTitle: 'Synthetic source',
-        }
-      : null;
-  }
-  async recordReviewFeedback(
-    _userId: string,
-    eventId: string,
-    status: 'remembered' | 'partial' | 'missed' | 'skipped',
-  ) {
-    this.feedback.push({ eventId, status });
-    return eventId === EVENT_ID;
-  }
-}
-
-class CallbackGateway implements TelegramGateway {
-  messages: string[] = [];
-  answers: string[] = [];
-  async sendMessage(_chatId: number, text: string): Promise<void> {
-    this.messages.push(text);
-  }
-  async answerCallbackQuery(_id: string, text?: string): Promise<void> {
-    this.answers.push(text ?? '');
-  }
-  async downloadVoice(): Promise<Uint8Array> {
-    return new Uint8Array();
-  }
-}
-
-function callbackUpdate(updateId: number, data: string) {
-  return {
-    update_id: updateId,
-    callback_query: {
-      id: `callback-${updateId}`,
-      data,
-      message: {
-        message_id: updateId,
-        chat: { id: CHAT_ID, type: 'private' },
-      },
-    },
-  };
-}
-
-describe('review callbacks', () => {
-  it('reveals and records recall quality for the exact event', async () => {
-    const repository = new CallbackRepository();
-    const telegram = new CallbackGateway();
-    const handler = createTelegramWebhookHandler({
-      webhookSecret: 'synthetic-webhook-secret',
+  it('does not mark a failed Telegram send as delivered', async () => {
+    const repository = new Repository();
+    repository.profileRows = [profile()];
+    repository.practices = [practice()];
+    const telegram = new Telegram();
+    telegram.fail = true;
+    const result = await processNotifications({
+      cronSecret: SECRET,
       repository,
       telegram,
-      knowledge: {} as TelegramKnowledgeService,
-      transcriber: {} as VoiceTranscriber,
+      now: () => new Date('2026-08-03T03:35:00.000Z'),
     });
-    const request = (body: unknown) =>
-      new Request('http://localhost/telegram-webhook', {
+    assert.deepEqual(result, { practicesSent: 0, errors: 1 });
+    assert.equal(repository.marks.length, 0);
+  });
+});
+
+describe('Practice notification endpoint', () => {
+  it('authenticates before profile reads and supports a side-effect-free probe', async () => {
+    const repository = new Repository();
+    const handler = createNotificationHandler({
+      cronSecret: SECRET,
+      repository,
+      telegram: new Telegram(),
+    });
+    assert.equal(
+      (
+        await handler(
+          new Request('http://localhost/process', { method: 'POST' }),
+        )
+      ).status,
+      401,
+    );
+    assert.equal(repository.profileReads, 0);
+    const probe = await handler(
+      new Request('http://localhost/process', {
         method: 'POST',
         headers: {
+          Authorization: `Bearer ${SECRET}`,
           'Content-Type': 'application/json',
-          'X-Telegram-Bot-Api-Secret-Token': 'synthetic-webhook-secret',
         },
-        body: JSON.stringify(body),
-      });
-    await handler(
-      request(callbackUpdate(1, reviewCallbackData(EVENT_ID, 'reveal'))),
+        body: JSON.stringify({ probe: true }),
+      }),
     );
-    await handler(
-      request(callbackUpdate(2, reviewCallbackData(EVENT_ID, 'partial'))),
-    );
-    assert.match(telegram.messages[0], /Synthetic original note/u);
-    assert.deepEqual(repository.feedback, [
-      { eventId: EVENT_ID, status: 'partial' },
-    ]);
-    assert.match(telegram.answers[1], /recorded/u);
+    assert.deepEqual(await probe.json(), { ok: true, probe: true });
+    assert.equal(repository.profileReads, 0);
   });
 });

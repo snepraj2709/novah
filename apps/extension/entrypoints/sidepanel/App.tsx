@@ -2,7 +2,6 @@ import type { Session } from '@supabase/supabase-js';
 import type {
   CaptureNoteResponse,
   SearchNotesResponse,
-  TelegramLinkCodeResponse,
 } from '@novah/shared/contracts';
 import { NOTE_TYPES as SHARED_NOTE_TYPES } from '@novah/shared/constants';
 import type { NoteType } from '@novah/shared/types';
@@ -12,7 +11,7 @@ import type { FormEvent } from 'react';
 import {
   captureNote,
   ExtensionApiError,
-  generateTelegramLinkCode,
+  managePractice,
   searchNotes,
 } from '../../lib/api.ts';
 import { answerSegments } from '../../lib/citations.ts';
@@ -37,7 +36,7 @@ import {
 } from '../../lib/draft-storage.ts';
 import { supabase } from '../../lib/supabase.ts';
 
-type Tab = 'capture' | 'recall' | 'settings';
+type Tab = 'capture' | 'find';
 type AuthMode = 'sign-in' | 'create-account';
 
 const NOTE_TYPES: Array<{ value: NoteType; label: string }> = [
@@ -106,7 +105,7 @@ function AuthPanel({ hasDraft }: { hasDraft: boolean }) {
       <p className="subtle">
         {hasDraft
           ? 'Your captured draft is safe on this device. Sign in to save it.'
-          : 'Sign in to capture ideas and recall what matters.'}
+          : 'Sign in to capture ideas and find what matters.'}
       </p>
       <form onSubmit={submit} className="stack">
         <label>
@@ -179,14 +178,37 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
   const [fieldErrors, setFieldErrors] = useState<DraftFieldErrors>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<CaptureNoteResponse['note'] | null>(null);
+  const [activationMessage, setActivationMessage] = useState<string | null>(
+    null,
+  );
   const savingRef = useRef(false);
 
   async function createNewDraft(): Promise<CaptureDraft> {
     setFieldErrors({});
     setSaved(null);
+    setActivationMessage(null);
     const draft = createCaptureDraft();
     await setCollection(addDraft(collection, draft));
     return draft;
+  }
+
+  async function keepSavedNote() {
+    if (!saved || busy) return;
+    setBusy(true);
+    setActivationMessage(null);
+    try {
+      await managePractice({ action: 'activate', noteId: saved.id });
+      setActivationMessage('Added to Practice. It will first be due tomorrow.');
+    } catch (cause) {
+      setActivationMessage(
+        cause instanceof ExtensionApiError &&
+          cause.code === 'practice_slots_full'
+          ? 'Saved, but all three Practice slots are full. Open web Practice to free a slot.'
+          : errorMessage(cause, 'Saved, but Practice could not be started.'),
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   function patchDraft(patch: Partial<CaptureDraft>) {
@@ -236,6 +258,31 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
             </div>
             <h2>Saved to Novah</h2>
             <p>Type: {saved.noteType.replaceAll('_', ' ')}</p>
+            {activationMessage && (
+              <p className="message info" role="status">
+                {activationMessage}
+              </p>
+            )}
+            <div className="button-row">
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => {
+                  setSaved(null);
+                  setActivationMessage(null);
+                }}
+              >
+                Done
+              </button>
+              <button
+                className="primary"
+                type="button"
+                disabled={busy || activationMessage?.startsWith('Added')}
+                onClick={() => void keepSavedNote()}
+              >
+                {busy ? 'Adding…' : 'Keep this with me'}
+              </button>
+            </div>
           </>
         ) : (
           <>
@@ -246,13 +293,15 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
             </p>
           </>
         )}
-        <button
-          className="primary"
-          type="button"
-          onClick={() => void createNewDraft()}
-        >
-          {saved ? 'Capture another' : 'New note'}
-        </button>
+        {!saved && (
+          <button
+            className="primary"
+            type="button"
+            onClick={() => void createNewDraft()}
+          >
+            New note
+          </button>
+        )}
       </section>
     );
   }
@@ -264,7 +313,7 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
           <p className="eyebrow">Capture</p>
           <h2>
             {activeDraft.origin === 'selection'
-              ? 'Review selection'
+              ? 'Check selection'
               : 'New note'}
           </h2>
         </div>
@@ -313,76 +362,83 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
             <span className="field-error">{fieldErrors.originalText}</span>
           )}
         </label>
-        <label>
-          Why does this matter to you?
-          <textarea
-            rows={3}
-            placeholder="Optional personal context"
-            value={activeDraft.personalContext}
-            onChange={(event) =>
-              patchDraft({ personalContext: event.target.value })
-            }
-            aria-invalid={Boolean(fieldErrors.personalContext)}
-          />
-          {fieldErrors.personalContext && (
-            <span className="field-error">{fieldErrors.personalContext}</span>
-          )}
-        </label>
-        <label>
-          Type
-          <select
-            value={activeDraft.noteType}
-            onChange={(event) =>
-              patchDraft({ noteType: event.target.value as NoteType | '' })
-            }
-          >
-            <option value="">Let Novah decide</option>
-            {NOTE_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="source-grid">
-          <label>
-            Source title
-            <input
-              value={activeDraft.sourceTitle}
-              onChange={(event) =>
-                patchDraft({ sourceTitle: event.target.value })
-              }
-              aria-invalid={Boolean(fieldErrors.sourceTitle)}
-            />
-            {fieldErrors.sourceTitle && (
-              <span className="field-error">{fieldErrors.sourceTitle}</span>
+        <details className="capture-details">
+          <summary>Add details</summary>
+          <div className="stack">
+            <label>
+              Why does this matter to you?
+              <textarea
+                rows={3}
+                placeholder="Optional personal context"
+                value={activeDraft.personalContext}
+                onChange={(event) =>
+                  patchDraft({ personalContext: event.target.value })
+                }
+                aria-invalid={Boolean(fieldErrors.personalContext)}
+              />
+              {fieldErrors.personalContext && (
+                <span className="field-error">
+                  {fieldErrors.personalContext}
+                </span>
+              )}
+            </label>
+            <label>
+              Type
+              <select
+                value={activeDraft.noteType}
+                onChange={(event) =>
+                  patchDraft({ noteType: event.target.value as NoteType | '' })
+                }
+              >
+                <option value="">Let Novah decide</option>
+                {NOTE_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="source-grid">
+              <label>
+                Source title
+                <input
+                  value={activeDraft.sourceTitle}
+                  onChange={(event) =>
+                    patchDraft({ sourceTitle: event.target.value })
+                  }
+                  aria-invalid={Boolean(fieldErrors.sourceTitle)}
+                />
+                {fieldErrors.sourceTitle && (
+                  <span className="field-error">{fieldErrors.sourceTitle}</span>
+                )}
+              </label>
+              <label>
+                Source URL
+                <input
+                  type="url"
+                  placeholder="https://…"
+                  value={activeDraft.sourceUrl}
+                  onChange={(event) =>
+                    patchDraft({
+                      sourceUrl: event.target.value,
+                      sourceUnavailable: false,
+                    })
+                  }
+                  aria-invalid={Boolean(fieldErrors.sourceUrl)}
+                />
+                {fieldErrors.sourceUrl && (
+                  <span className="field-error">{fieldErrors.sourceUrl}</span>
+                )}
+              </label>
+            </div>
+            {activeDraft.sourceUnavailable && (
+              <p className="message info">
+                Chrome did not expose a shareable URL for this page or PDF. You
+                can paste one above, or save without it.
+              </p>
             )}
-          </label>
-          <label>
-            Source URL
-            <input
-              type="url"
-              placeholder="https://…"
-              value={activeDraft.sourceUrl}
-              onChange={(event) =>
-                patchDraft({
-                  sourceUrl: event.target.value,
-                  sourceUnavailable: false,
-                })
-              }
-              aria-invalid={Boolean(fieldErrors.sourceUrl)}
-            />
-            {fieldErrors.sourceUrl && (
-              <span className="field-error">{fieldErrors.sourceUrl}</span>
-            )}
-          </label>
-        </div>
-        {activeDraft.sourceUnavailable && (
-          <p className="message info">
-            Chrome did not expose a shareable URL for this page or PDF. You can
-            paste one above, or save without it.
-          </p>
-        )}
+          </div>
+        </details>
         {activeDraft.status === 'failed' && (
           <p className="message error" role="alert">
             {activeDraft.lastError ?? 'Capture failed. Your draft is safe.'}
@@ -394,7 +450,7 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
               ? 'Saving…'
               : activeDraft.status === 'failed'
                 ? 'Retry save'
-                : 'Save to Novah'}
+                : 'Save'}
           </button>
           <button
             className="text-button danger"
@@ -445,7 +501,7 @@ function CitationAnswer({ result }: { result: SearchNotesResponse }) {
   );
 }
 
-function RecallPanel() {
+function FindPanel() {
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -462,7 +518,7 @@ function RecallPanel() {
       setError(
         cause instanceof ExtensionApiError
           ? cause.message
-          : errorMessage(cause, 'Recall failed. Please try again.'),
+          : errorMessage(cause, 'Find failed. Please try again.'),
       );
     } finally {
       setBusy(false);
@@ -473,16 +529,16 @@ function RecallPanel() {
     <section>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Recall</p>
+          <p className="eyebrow">Find</p>
           <h2>Ask your notes</h2>
         </div>
       </div>
       <form onSubmit={submit} className="search-form">
-        <label className="sr-only" htmlFor="recall-query">
-          What do you want to recall?
+        <label className="sr-only" htmlFor="find-query">
+          What do you want to find?
         </label>
         <textarea
-          id="recall-query"
+          id="find-query"
           rows={3}
           placeholder="What did I save about…?"
           value={query}
@@ -495,7 +551,7 @@ function RecallPanel() {
           type="submit"
           disabled={busy || !query.trim()}
         >
-          {busy ? 'Searching…' : 'Recall'}
+          {busy ? 'Finding…' : 'Find'}
         </button>
       </form>
       {error && (
@@ -547,81 +603,6 @@ function RecallPanel() {
           ))}
         </div>
       )}
-    </section>
-  );
-}
-
-function SettingsPanel() {
-  const [link, setLink] = useState<TelegramLinkCodeResponse | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function generateCode() {
-    setBusy(true);
-    setError(null);
-    try {
-      setLink(await generateTelegramLinkCode());
-    } catch (cause) {
-      setError(errorMessage(cause, 'Could not create a Telegram link code.'));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section>
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Settings</p>
-          <h2>Connect Telegram</h2>
-        </div>
-      </div>
-      <p className="subtle">
-        Generate a one-time code, then send it to the Novah bot from the private
-        Telegram chat you want to connect.
-      </p>
-      {error && (
-        <p className="message error" role="alert">
-          {error}
-        </p>
-      )}
-      {link && (
-        <div className="telegram-link-card" aria-live="polite">
-          <p className="connection-status">
-            {link.connected
-              ? 'A Telegram chat is already connected.'
-              : 'No Telegram chat is connected yet.'}
-          </p>
-          {!link.connected && (
-            <>
-              <code aria-label="Telegram link code">{link.code}</code>
-              <p>
-                Send <strong>/link {link.code}</strong> to the Novah bot. This
-                code expires at {new Date(link.expiresAt).toLocaleTimeString()}{' '}
-                and works once.
-              </p>
-            </>
-          )}
-        </div>
-      )}
-      {!link?.connected && (
-        <button
-          className="primary"
-          type="button"
-          disabled={busy}
-          onClick={() => void generateCode()}
-        >
-          {busy
-            ? 'Generating…'
-            : link
-              ? 'Generate a new code'
-              : 'Generate code'}
-        </button>
-      )}
-      <p className="privacy-note">
-        Telegram messages pass through Telegram infrastructure. Novah never
-        stores raw voice audio.
-      </p>
     </section>
   );
 }
@@ -709,17 +690,10 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={tab === 'recall' ? 'active' : ''}
-              onClick={() => setTab('recall')}
+              className={tab === 'find' ? 'active' : ''}
+              onClick={() => setTab('find')}
             >
-              Recall
-            </button>
-            <button
-              type="button"
-              className={tab === 'settings' ? 'active' : ''}
-              onClick={() => setTab('settings')}
-            >
-              Settings
+              Find
             </button>
           </nav>
           <div className="content">
@@ -728,10 +702,8 @@ export default function App() {
                 collection={collection}
                 setCollection={setCollection}
               />
-            ) : tab === 'recall' ? (
-              <RecallPanel />
             ) : (
-              <SettingsPanel />
+              <FindPanel />
             )}
           </div>
         </>

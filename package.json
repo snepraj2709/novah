@@ -7,7 +7,7 @@
   "scripts": {
     "db:start": "supabase start",
     "db:reset": "supabase db reset --local",
-    "db:test": "supabase test db",
+    "db:test": "supabase test db && node scripts/verify-practice-concurrency.mjs",
     "db:test:hosted": "node scripts/verify-phase-1-hosted.mjs",
     "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/types/database.generated.ts && prettier --write packages/shared/src/types/database.generated.ts",
     "test:functions": "node --experimental-strip-types --test supabase/functions/tests/*.test.ts",
