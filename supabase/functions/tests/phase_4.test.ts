@@ -6,6 +6,7 @@ import {
   telegramClientRequestId,
 } from '../_shared/telegram-handler.ts';
 import {
+  MAX_TELEGRAM_MESSAGE_LENGTH,
   MAX_TELEGRAM_VOICE_BYTES,
   MAX_TELEGRAM_VOICE_DURATION_SECONDS,
 } from '../../../packages/shared/src/constants/index.ts';
@@ -329,6 +330,39 @@ describe('Telegram Practice cutover', () => {
     assert.equal(options.inlineKeyboard[2][1].callbackData, `p:i:${NOTE_ID}`);
     assert.equal(options.inlineKeyboard[3][0].callbackData, `p:n:${NOTE_ID}`);
     assert.ok(options.inlineKeyboard[3][0].callbackData.length <= 64);
+  });
+
+  it('delivers an over-limit /practice note exactly with actions on the final part', async () => {
+    const context = dependencies();
+    context.repository.users.set(CHAT_ID, USER_ID);
+    const originalText = `first🙂${'q'.repeat(9_000)}last`;
+    context.repository.practicesRows = [
+      {
+        noteId: NOTE_ID,
+        originalText,
+        sourceTitle: 'Exact source',
+        nextDueOn: '2026-08-04',
+      },
+    ];
+    await context.handler(request(update(50, { text: '/practice' })));
+    assert.ok(context.telegram.messages.length > 1);
+    assert.ok(
+      context.telegram.messages.every(
+        (message) => message.text.length <= MAX_TELEGRAM_MESSAGE_LENGTH,
+      ),
+    );
+    const delivered = context.telegram.messages
+      .map((message) => message.text)
+      .join('');
+    assert.match(delivered, /first🙂/u);
+    assert.match(delivered, /last\n\nSource: Exact source/u);
+    assert.equal(delivered.includes(originalText), true);
+    assert.ok(
+      context.telegram.messages
+        .slice(0, -1)
+        .every((message) => !message.options),
+    );
+    assert.ok(context.telegram.messages.at(-1)?.options);
   });
 
   it('routes a Practice reread callback through the owner-scoped service mutation', async () => {

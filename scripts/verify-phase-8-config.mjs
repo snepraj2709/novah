@@ -19,6 +19,7 @@ const SERVER_ONLY_ENV = new Set([
 const FUNCTION_AUTH = new Map([
   ['capture-note', true],
   ['delete-account', true],
+  ['manage-practice', true],
   ['process-notifications', false],
   ['search-notes', true],
   ['telegram-link-code', true],
@@ -47,7 +48,13 @@ const [
   webConfig,
   extensionConfig,
   extensionWxtConfig,
+  rootReadme,
   runbook,
+  privacyPolicy,
+  privacyPage,
+  storeSubmission,
+  privateBetaInstallation,
+  extensionReadme,
   vercelSource,
   vercelIgnore,
 ] = await Promise.all([
@@ -59,7 +66,13 @@ const [
   text('apps/web/src/lib/config.ts'),
   text('apps/extension/lib/config.ts'),
   text('apps/extension/wxt.config.ts'),
+  text('README.md'),
   text('docs/runbook.md'),
+  text('docs/privacy-policy.md'),
+  text('apps/web/src/pages/PrivacyPage.tsx'),
+  text('docs/chrome-web-store-submission.md'),
+  text('docs/private-beta-extension-installation.md'),
+  text('apps/extension/README.md'),
   text('vercel.json'),
   text('.vercelignore'),
 ]);
@@ -170,6 +183,36 @@ for (const key of SERVER_ONLY_ENV) {
 }
 assert(runbook.includes('.novah-private/phase-8-deployment.md'));
 
+const currentProductCopy = [
+  rootReadme,
+  runbook,
+  privacyPolicy,
+  privacyPage,
+  storeSubmission,
+  privateBetaInstallation,
+  extensionReadme,
+]
+  .join('\n')
+  .toLowerCase();
+for (const retiredClaim of [
+  '/today',
+  '/review',
+  '/search',
+  'daily digest',
+  'digest time',
+  'review time',
+  'spaced review',
+  'fixed review',
+  'recall tab',
+  'web library',
+  'web review',
+]) {
+  assert(
+    !currentProductCopy.includes(retiredClaim),
+    `Current product copy still contains retired behavior: ${retiredClaim}`,
+  );
+}
+
 console.log(
   JSON.stringify({
     phase: 8,
@@ -179,6 +222,7 @@ console.log(
     functionAuthorizationModes: FUNCTION_AUTH.size,
     spaFallback: true,
     securityHeaders: responseHeaders.size,
+    retiredProductCopyClaims: 0,
     privateRollbackLedgerIgnored: true,
   }),
 );

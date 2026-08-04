@@ -743,6 +743,7 @@ With isolated user A and user B:
 Run, at minimum:
 
 ```bash
+pnpm test:practice:upgrade
 pnpm db:reset
 pnpm db:types
 pnpm db:test
@@ -768,9 +769,9 @@ verification remain approval-gated.
 The implementing agent must append concise evidence here after each approved
 phase. Until then, leave every phase Pending.
 
-| Phase                                 | Status   | Evidence                                                                                                                                                                                                         |
-| ------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Idea 1 — Active Practice foundation   | Complete | Fresh reset/types; 136 pgTAP assertions plus signed-JWT concurrent activation (3 active, fourth rejected); 53 function, 8 web, and 13 extension tests; type, lint, format, build, security, and diff gates pass. |
-| Idea 2 — Living reflection thread     | Complete | Fresh reset/types; 166 pgTAP assertions (30 for entries/replies/cascades) plus concurrency; 64 function, 11 web, and 13 extension tests; type, lint, format, build, security, and diff gates pass.               |
-| Idea 3 — Bandwidth-aware lifecycle    | Complete | Fresh reset/types; 194 pgTAP assertions plus signed-JWT concurrency; 70 function, 13 web, and 13 extension tests; type, lint, format, build, security, runtime-removal, and diff gates pass.                     |
-| Final destructive cleanup and cutover | Pending  | —                                                                                                                                                                                                                |
+| Phase                                 | Status   | Evidence                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idea 1 — Active Practice foundation   | Complete | Fresh reset/types; 203 cumulative pgTAP assertions plus signed-JWT concurrent activation (3 active, fourth rejected); 77 cumulative function, 14 web, and 13 extension tests; active-claim expiry and stale-lease rejection pass; type, lint, format, build, security, and diff gates pass.                                                     |
+| Idea 2 — Living reflection thread     | Complete | Fresh reset/types; 203 cumulative pgTAP assertions plus concurrency; 77 cumulative function, 14 web, and 13 extension tests; stable web-entry idempotency keys, single-use replies, entries/cascades, and callback races pass; type, lint, format, build, security, and diff gates pass.                                                        |
+| Idea 3 — Bandwidth-aware lifecycle    | Complete | Fresh and populated pre-Practice upgrade replays pass with legacy rows preserved and no note auto-conversion; 203 pgTAP assertions plus signed-JWT concurrency; 77 function, 14 web, and 13 extension tests; current-local-date pause reconciliation, grouped callback/mark races, schema lint, security, runtime-removal, and diff gates pass. |
+| Final destructive cleanup and cutover | Pending  | —                                                                                                                                                                                                                                                                                                                                               |

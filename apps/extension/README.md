@@ -1,8 +1,10 @@
 # Novah Chrome extension
 
 The Manifest V3 extension provides a persistent side panel for authenticated
-capture and semantic recall. Selecting text and choosing **Save to Novah**
-stores a local draft with the page title and URL before opening the panel.
+Capture and semantic Find. Selecting text and choosing **Save to Novah** stores
+a local draft with the page title and URL before opening the panel. After a
+successful save, **Done** clears the success state and **Keep this with me**
+explicitly activates the note through `manage-practice`.
 
 The production bundle reads only the public `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_PUBLISHABLE_KEY` values from the ignored root `.env`. OpenAI and

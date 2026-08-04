@@ -1,5 +1,9 @@
 # Store screenshot checklist
 
+> Status: The tracked images below are historical pre-Practice `0.1.0` assets.
+> Do not submit them with the current extension. A separately approved Store
+> update must replace them with screenshots from the Practice-compatible build.
+
 Place original screenshots in the ignored `raw/` subdirectory. Codex will
 inspect them and produce final 1280x800 PNG assets in this directory.
 
@@ -20,10 +24,10 @@ tokens and notification previews.
 - Capture the Capture tab showing the selected text, source title and URL.
 - Do not show a real personal-context value or any account identifier.
 
-## Screenshot 3 — Recall by meaning
+## Screenshot 3 — Find by meaning
 
 - Save the synthetic note and search for a short phrase from it.
-- Capture Recall showing the matching original note and source.
+- Capture Find showing the matching original note and source.
 - If an answer is withheld because evidence is weak, that state is acceptable
   only if the matching note remains visible.
 
@@ -40,9 +44,10 @@ tokens and notification previews.
 - `store-01-save-to-novah.png` — selected text and the context-menu action.
 - `store-02-review-selection.png` — captured text and source context in the
   Novah side panel.
-- `store-03-recall-result.png` — grounded Recall with cited ranked notes.
+- `store-03-recall-result.png` — historical grounded Recall screenshot; replace
+  it with a current Find screenshot before a Store update.
 
 Each final image uses a focal-point-aware 16:10 crop from its high-resolution
 source and then scales proportionally to 1280x800. The context-menu image is
-anchored left; Capture and Recall are anchored right so the complete Novah side
+anchored left; Capture and the historical Recall view are anchored right so the complete Novah side
 panel remains visible. No UI is stretched, padded or regenerated.

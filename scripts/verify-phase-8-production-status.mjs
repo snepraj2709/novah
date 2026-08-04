@@ -8,6 +8,7 @@ const EXPECTED_EXTENSION_ID = 'illdnfhcgdhkgbifepbejobplgikmmlp';
 const EXPECTED_FUNCTION_AUTH = new Map([
   ['capture-note', true],
   ['delete-account', true],
+  ['manage-practice', true],
   ['process-notifications', false],
   ['search-notes', true],
   ['telegram-link-code', true],
@@ -21,6 +22,10 @@ const EXPECTED_MIGRATIONS = [
   '20260802030000',
   '20260802120000',
   '20260802160000',
+  '20260803004000',
+  '20260803090000',
+  '20260803160000',
+  '20260804100000',
 ];
 const EXPECTED_SECRET_NAMES = new Set([
   'ALLOWED_EXTENSION_IDS',
@@ -157,6 +162,7 @@ async function verifyCors(publishableKey) {
   const userFunctions = [
     'capture-note',
     'delete-account',
+    'manage-practice',
     'search-notes',
     'telegram-link-code',
   ];

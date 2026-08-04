@@ -12,13 +12,13 @@ You can save selected text, quotations, observations, and your own notes from a 
 
 Novah keeps the original note and its provenance: optional personal context, source title, source URL, capture channel, and capture time. You can choose a Type yourself. If you leave Type blank, Novah classifies the note into one of seven supported Types: quote, argument, lesson, observation, reflection, principle, or conversation note.
 
-Every new capture gets a search embedding for semantic recall. It does not get an AI-generated summary, tags, or a per-note AI recall prompt. Search can write a grounded answer when the retrieved notes provide strong enough evidence; otherwise it returns possible matches without inventing an answer.
+Every new capture gets a search embedding for Find. It does not get an AI-generated summary, tags, or a per-note AI recall prompt. Find can write a grounded answer when the retrieved notes provide strong enough evidence; otherwise it returns possible matches without inventing an answer.
 
 ## The idea behind Novah
 
 Novah takes inspiration from _hypomnēmata_, an old Greek practice of keeping quotations, observations, arguments, and principles for repeated reflection. The point was not simply to archive them. People returned to these notes until the ideas became part of how they thought.
 
-Novah follows the same basic rhythm. You keep the wording and context that mattered, then meet the note again through search, a daily digest, or a scheduled review.
+Novah follows the same basic rhythm. You keep the wording and context that mattered, find the original note by meaning, or deliberately keep it in Practice until you decide it has become part of how you think or act.
 
 ## How the product works
 
@@ -27,12 +27,15 @@ flowchart LR
     A["Capture from Chrome or Telegram"] --> B["Preserve the note and provenance"]
     B --> C["Classify only if Type is blank"]
     C --> D["Create a search embedding"]
-    D --> E["Recall through search and digests"]
-    E --> F["Review on a fixed schedule"]
-    F --> E
+    D --> E["Saved in Collection"]
+    E --> F["Find by meaning"]
+    E --> G["Keep this with me"]
+    G --> H["Reread in Practice"]
+    H --> I["Continue, pause, or mark Integrated"]
+    H --> J["Optionally add a Reflection or Story"]
 ```
 
-The browser clients use Supabase authentication. Edge Functions handle classification, embeddings, grounded synthesis, voice transcription, Telegram requests, and scheduled delivery. Notes and review state live in Postgres with Row Level Security.
+The browser clients use Supabase authentication. Edge Functions handle classification, embeddings, grounded synthesis, voice transcription, Telegram requests, and scheduled delivery. Notes, Practice state, and append-only Reflection/Story entries live in Postgres with Row Level Security.
 
 ## Capture with the Chrome extension
 
@@ -42,61 +45,55 @@ For the hosted private beta:
 2. Get the two public browser configuration values through the beta invitation channel, then build and load the extension as described below. Public Chrome Web Store distribution is not complete.
 3. Sign in to the extension with the same account.
 4. Select text on a webpage, right-click, and choose **Save to Novah**. You can also open the side panel and start a note manually.
-5. Add personal context, a source title, or a source URL if they help. These fields are optional.
+5. Open **Add details** if personal context, Type, source title, or source URL would help. These fields are optional.
 6. Choose a Type, or leave **Let Novah decide** selected.
-7. Save the note. If the request fails, the extension keeps the draft locally so you can retry it.
-8. Use the extension's Recall tab or the web Library to search by meaning.
+7. Save the note. If the request fails, the extension keeps the draft and its idempotency key locally so you can retry safely.
+8. Choose **Done** to finish or **Keep this with me** to activate the note in Practice.
+9. Use the extension's Find tab or the web Collection to search and browse.
 
 The extension captures the page title and HTTP(S) URL when Chrome makes them available. Chrome PDF and internal pages may require you to paste the source URL yourself.
 
-## Capture and recall through Telegram
+## Capture, Find, and Practice through Telegram
 
 The beta bot is shared through the private invitation channel; the repository does not publish a bot handle.
 
 1. Open Settings in the web dashboard and generate a link code.
 2. Send `/link CODE` to the bot from a private Telegram chat within ten minutes. The code is single-use.
 3. Send plain text or a voice note to save it. Forwarded text is also supported.
-4. Use `/search QUERY` for semantic recall, `/today` for today's captures, `/review` for due reviews, and `/settings` to read your delivery schedule. `/start` and `/help` show linking or command guidance.
+4. Use `/find QUERY` for semantic Find, `/practice` for active Practices, and `/settings` to read your timezone and Practice time. `/start` and `/help` show linking or command guidance.
 
 Voice notes are limited to two minutes and 10 MiB. Novah downloads the file long enough to transcribe it, clears the in-memory audio, and saves the transcription as the note. Raw audio is not stored durably.
 
 If you deploy Novah yourself, you must create your own Telegram bot, deploy a reachable webhook, configure its secret, and set the webhook's allowed update types. A local database reset does none of this for you.
 
-## How spaced review works
+## How Practice works
 
-Every captured note receives five review dates:
+Saving a note does not schedule it. **Keep this with me** explicitly activates it, and each account can have at most three active Practices. The first activation uses a one-day interval; later activations remember the last interval you selected, from 1 through 30 whole calendar days.
 
-| Stage | Review date                    |
-| ----- | ------------------------------ |
-| 1     | 1 calendar day after capture   |
-| 2     | 2 calendar days after capture  |
-| 3     | 3 calendar days after capture  |
-| 4     | 7 calendar days after capture  |
-| 5     | 21 calendar days after capture |
+Activation and resume first become due on the next calendar day in your account timezone. A due Practice stays due until you act. **Reread** is a complete encounter: the exact note is visible, there is no reveal step, and writing is optional. Completing an overdue encounter schedules the next one from today's local date rather than creating catch-up work.
 
-Novah calculates these dates in your timezone. Due notes are grouped into one daily Telegram packet at your selected review time, which defaults to 09:00 local time. The notification worker checks eligible schedules every 10 minutes. That is the dispatch frequency, not another review interval.
+Reflection and Story are separate append-only entry types. The full chronological thread and optional fixed prompt bank appear only in the note drawer. Practice cards never display prompt controls or entry content. Find continues to use original notes only; Practice writing is not embedded or supplied to synthesis.
 
-Try to recall each note before revealing it. Telegram records remembered, partly remembered, missed, or skipped feedback. The schedule stays fixed; feedback does not adapt later review dates. The web Review page shows due, upcoming, and completed counts, lists due reviews and completed history, and links you to schedule settings.
+Pausing frees an active slot and can be indefinite or use a resume date. A dated pause resumes automatically when a slot is available; otherwise it waits in **Ready to resume** without displacing another Practice. Marking a note **Integrated** also frees its slot and schedules a 30-day check-in. The user—not Novah—decides whether something is Integrated.
 
-The daily digest is separate from review. It defaults to 21:00 local time and is sent only when you saved at least one note that day. You can change your timezone, digest time, and review time in Settings.
+Telegram may notify once per local day while an active Practice remains due. The notification worker checks eligible schedules every ten minutes, sends active Practices separately, and groups due Integrated check-ins. Ignoring a notification does not create a missed event or advance a schedule.
 
 ## What is available in the web dashboard
 
-- Today shows captures from your local day and a stored daily digest when one exists.
-- Library lets you browse by capture time, filter by Type, run semantic search, open full note details, export JSON or Markdown, and delete a note.
-- Review shows due, upcoming, and completed review state.
-- Settings controls timezone and delivery times, creates Telegram link codes, shows connection state, and supports reauthenticated account deletion.
+- Practice is the signed-in landing page. It shows active-slot usage, due and upcoming Practices, Ready-to-resume pauses, and Integrated check-ins.
+- Collection lets you browse Saved, Practising, Paused, and Integrated notes, run Find, filter by Type, open the full note drawer, export JSON or Markdown, and delete a note.
+- Settings controls timezone and the account-level Practice time, creates Telegram link codes, shows connection state, and supports reauthenticated account deletion.
 - Privacy explains the data and provider boundaries without requiring you to sign in.
 
-Deleting a note also deletes its five review events. Account deletion removes the account's notes, digests, reviews, and delivery settings. Export first if you may want a copy.
+Deleting a note also deletes its Practice state, events, entries, notification claims, and reply prompts. Account deletion removes all owned data. JSON and Markdown exports intentionally remain note-only and exclude Reflection and Story entries, so export first if you may want a copy of the note collection.
 
 ## Technology overview
 
 - React 19, TypeScript, Vite 8, and Tailwind CSS 4 for the web dashboard
 - WXT and Chrome Manifest V3 for the extension
 - Supabase Auth, Postgres, pgvector, Edge Functions, and Cron for data and backend work
-- OpenAI APIs for optional Type classification, embeddings, grounded synthesis, eligible multi-note digests, and voice transcription
-- Telegram Bot API for capture, commands, digests, and review feedback
+- OpenAI APIs for optional Type classification, original-note embeddings, grounded Find synthesis, and voice transcription
+- Telegram Bot API for capture, Find, Practice notifications, replies, and lifecycle actions
 - Vercel for the hosted web application
 - Zod for shared request and response validation
 
@@ -174,7 +171,7 @@ Chrome is the supported browser. Reload the extension from `chrome://extensions`
 
 A developer deployment needs more than the browser environment:
 
-1. Deploy the six Supabase Edge Functions.
+1. Deploy the seven Supabase Edge Functions.
 2. Set the OpenAI, Telegram, webhook, and Cron secrets in the Edge Function environment. Supabase supplies its managed URL and keys there.
 3. Set `APP_URL` and `ALLOWED_EXTENSION_IDS` so browser CORS is explicit.
 4. Configure Supabase Auth's site URL and allowed redirect URL for the deployed web origin.
@@ -200,6 +197,7 @@ For your own deployment, replace these pins together: the Supabase origin, exten
 ```bash
 # Local database and migrations
 pnpm db:start
+pnpm test:practice:upgrade
 pnpm db:reset
 pnpm db:test
 
@@ -225,16 +223,16 @@ The hosted, live Telegram, notification, and retrieval commands in `package.json
 
 ## Privacy and security notes
 
-Novah stores account details, original note text, optional personal context and source metadata, the assigned Type, embeddings, digests, review history, and delivery settings. Historical notes may still contain legacy summaries, tags, or recall prompts; new captures do not create them.
+Novah stores account details, original note text, optional personal context and source metadata, the assigned Type, embeddings, Practice state, append-only Practice entries and content-free lifecycle events, reply prompts, and delivery settings. Historical notes may still contain legacy summaries, tags, or recall prompts; new captures do not create them.
 
 Row Level Security scopes user-owned records to the signed-in account. Browser clients receive only public Supabase configuration. Server-only calls handle model access, service-role database work, Telegram signing, and Cron authentication. Text-generation requests use `store: false`, and production application code does not log note or transcription content.
 
-Telegram messages pass through Telegram infrastructure. OpenAI receives only the data needed for the requested classification, embedding, synthesis, digest, or transcription operation. Novah does not send note content to third-party analytics, sell it, or use it for advertising.
+Telegram messages pass through Telegram infrastructure. OpenAI receives only the data needed for the requested classification, embedding, synthesis, or transcription operation. Novah does not use AI to choose prompts, judge Practice progress, or decide that a note is Integrated. It does not send note content to third-party analytics, sell it, or use it for advertising.
 
-You can export your library as JSON or Markdown, delete individual notes, or permanently delete your account from Settings.
+You can export your note collection as JSON or Markdown, delete individual notes, or permanently delete your account from Settings. Reflection and Story entries are intentionally excluded from exports and are erased by deleting their parent note or the account.
 
 ## Current limitations
 
 Novah is a private beta. The Chrome extension is not publicly distributed through the Chrome Web Store yet, so testers load an unpacked build. Chrome is the only supported browser.
 
-Native mobile apps, public sharing, collaboration, payments, subscriptions, adaptive review scheduling, and support for Firefox, Safari, or Edge are not implemented. The web dashboard does not capture notes directly; capture currently happens through the Chrome extension or Telegram. Running the full stack under a new account also requires replacing the deployment-specific configuration described above.
+Native mobile apps, public sharing, collaboration, payments, subscriptions, adaptive Practice scheduling, and support for Firefox, Safari, or Edge are not implemented. The web dashboard does not capture notes directly; capture currently happens through the Chrome extension or Telegram. Running the full stack under a new account also requires replacing the deployment-specific configuration described above.

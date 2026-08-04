@@ -1,7 +1,7 @@
 # Novah runbook
 
-> Status: Ideas 1 and 2 are complete locally. Idea 3 is implemented locally and
-> must pass its frozen phase gate before any hosted rollout. Deployment, hosted
+> Status: Ideas 1–3 are complete locally and pass the frozen phase gates.
+> Deployment, hosted
 > data changes, Cron or webhook changes, paid provider calls, and destructive
 > cleanup each require separate explicit approval.
 
@@ -29,6 +29,7 @@ local replay. The handwritten `database.ts` layer corrects nullable
 The complete pre-review gate is:
 
 ```bash
+pnpm test:practice:upgrade
 pnpm db:reset
 pnpm db:types
 pnpm db:test
@@ -115,9 +116,11 @@ prompts never fall through to ordinary capture.
 Voice input is limited to two minutes and 10 MiB. The raw buffer is cleared
 after transcription and is not stored durably.
 
-Webhook configuration, secret rotation, callback forwarding tests, and any
-message sent to a real chat require explicit approval. Never print or commit
-bot tokens, webhook secrets, chat IDs, prompt IDs, or note content.
+The webhook handler requires `TELEGRAM_WEBHOOK_SECRET`, and Telegram API calls
+use `TELEGRAM_BOT_TOKEN`; both remain server-only. Webhook configuration,
+secret rotation, callback forwarding tests, and any message sent to a real chat
+require explicit approval. Never print or commit bot tokens, webhook secrets,
+chat IDs, prompt IDs, or note content.
 
 ## Web and extension
 
@@ -131,9 +134,10 @@ pnpm --filter extension typecheck
 pnpm --filter extension build
 ```
 
-The web app uses only the public Supabase URL and publishable key. `/practice`
-is the authenticated landing route; `/collection`, `/settings`, and `/privacy`
-are the other supported screens. Old screen paths are unsupported, not aliases.
+The web app uses only `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_PUBLISHABLE_KEY`. `/practice` is the authenticated landing
+route; `/collection`, `/settings`, and `/privacy` are the other supported
+screens. Old screen paths are unsupported, not aliases.
 
 The Collection supports Saved, Practising, Paused, and Integrated filters.
 Exports remain note-only JSON version 2 or Markdown. Reflection and Story
@@ -165,8 +169,9 @@ provider call.
 
 Do not deploy from this runbook without separate authorization. Before a future
 rollout, preserve current function versions, migration state, Cron status,
-webhook metadata, and web deployment state in an ignored private ledger. Never
-record credentials or personal content.
+webhook metadata, and web deployment state in the ignored private ledger at
+`.novah-private/phase-8-deployment.md`. Never record credentials or personal
+content.
 
 The final destructive database cleanup is separate from Idea 3. It requires a
 verified backup, paused production scheduling, explicit approval, a reviewed

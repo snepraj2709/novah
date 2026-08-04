@@ -3,11 +3,15 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import {
+  checkInMessage,
   createNotificationHandler,
   practiceCallbackData,
+  practiceMessage,
   processNotifications,
   scheduleWindow,
 } from '../_shared/notification-handler.ts';
+import { MAX_TELEGRAM_MESSAGE_LENGTH } from '../../../packages/shared/src/constants/index.ts';
+import { splitTelegramMessage } from '../_shared/telegram-message.ts';
 import type {
   ClaimedCheckIn,
   ClaimedPractice,
@@ -125,6 +129,18 @@ function practice(noteId = NOTE_ID): ClaimedPractice {
 }
 
 describe('Practice notification scheduling', () => {
+  it('splits Telegram text without losing Unicode content', () => {
+    const exact = `${'a'.repeat(MAX_TELEGRAM_MESSAGE_LENGTH - 1)}🙂${'z'.repeat(20)}`;
+    const parts = splitTelegramMessage(exact);
+    assert.equal(parts.join(''), exact);
+    assert.ok(parts.length > 1);
+    assert.ok(
+      parts.every((part) => part.length <= MAX_TELEGRAM_MESSAGE_LENGTH),
+    );
+    assert.equal(parts[0].endsWith('\ud83d'), false);
+    assert.equal(parts[1].startsWith('\ude42'), false);
+  });
+
   it('uses the account timezone and ten-minute Practice window', () => {
     assert.deepEqual(
       scheduleWindow(new Date('2026-08-03T03:35:00.000Z'), profile()),
@@ -189,6 +205,39 @@ describe('Practice notification scheduling', () => {
     assert.equal(options.inlineKeyboard[2][1].callbackData, `p:i:${NOTE_ID}`);
     assert.equal(options.inlineKeyboard[3][0].callbackData, `p:n:${NOTE_ID}`);
     assert.ok(practiceCallbackData(NOTE_ID).length <= 64);
+  });
+
+  it('delivers an over-limit Practice exactly and adds actions only to its final part', async () => {
+    const repository = new Repository();
+    repository.profileRows = [profile()];
+    const claimed = {
+      ...practice(),
+      originalText: `opening🙂${'x'.repeat(9_000)}closing`,
+    };
+    repository.practices = [claimed];
+    const telegram = new Telegram();
+    const result = await processNotifications({
+      cronSecret: SECRET,
+      repository,
+      telegram,
+      now: () => new Date('2026-08-03T03:35:00.000Z'),
+    });
+    assert.equal(result.practicesSent, 1);
+    assert.ok(telegram.messages.length > 1);
+    assert.ok(
+      telegram.messages.every(
+        (message) => message.text.length <= MAX_TELEGRAM_MESSAGE_LENGTH,
+      ),
+    );
+    assert.equal(
+      telegram.messages.map((message) => message.text).join(''),
+      practiceMessage(claimed),
+    );
+    assert.ok(
+      telegram.messages.slice(0, -1).every((message) => !message.options),
+    );
+    assert.ok(telegram.messages.at(-1)?.options);
+    assert.equal(repository.marks.length, 1);
   });
 
   it('deduplicates repeated and concurrent runs for the same local day', async () => {
@@ -362,6 +411,65 @@ describe('Practice notification scheduling', () => {
       `p:x:${NOTE_ID}`,
     );
     assert.equal(repository.checkInMarks.length, 1);
+  });
+
+  it('delivers an over-limit check-in packet exactly and marks it only after the final part', async () => {
+    const repository = new Repository();
+    repository.profileRows = [profile()];
+    repository.checkIns = [
+      {
+        noteId: NOTE_ID,
+        originalText: `first🙂${'y'.repeat(9_000)}last`,
+        sourceTitle: 'Exact source',
+        nextCheckInOn: '2026-08-03',
+      },
+    ];
+    const telegram = new Telegram();
+    const result = await processNotifications({
+      cronSecret: SECRET,
+      repository,
+      telegram,
+      now: () => new Date('2026-08-03T03:35:00.000Z'),
+    });
+    assert.equal(result.checkInPacketsSent, 1);
+    assert.ok(telegram.messages.length > 1);
+    assert.ok(
+      telegram.messages.every(
+        (message) => message.text.length <= MAX_TELEGRAM_MESSAGE_LENGTH,
+      ),
+    );
+    assert.equal(
+      telegram.messages.map((message) => message.text).join(''),
+      checkInMessage(repository.checkIns),
+    );
+    assert.ok(
+      telegram.messages.slice(0, -1).every((message) => !message.options),
+    );
+    assert.ok(telegram.messages.at(-1)?.options);
+    assert.deepEqual(repository.checkInMarks[0].noteIds, [NOTE_ID]);
+  });
+
+  it('bounds large check-in sets into independently marked logical packets', async () => {
+    const repository = new Repository();
+    repository.profileRows = [profile()];
+    repository.checkIns = Array.from({ length: 21 }, (_, index) => ({
+      noteId: `${String(index).padStart(8, '0')}-0000-4000-8000-000000000000`,
+      originalText: `Integrated note ${index + 1}.`,
+      sourceTitle: null,
+      nextCheckInOn: '2026-08-03',
+    }));
+    const telegram = new Telegram();
+    const result = await processNotifications({
+      cronSecret: SECRET,
+      repository,
+      telegram,
+      now: () => new Date('2026-08-03T03:35:00.000Z'),
+    });
+    assert.equal(result.checkInPacketsSent, 2);
+    assert.equal(repository.checkInMarks.length, 2);
+    assert.equal(repository.checkInMarks[0].noteIds.length, 20);
+    assert.equal(repository.checkInMarks[1].noteIds.length, 1);
+    assert.match(telegram.messages[1].text, /21\. Integrated note 21/u);
   });
 });
 

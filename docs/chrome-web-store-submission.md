@@ -1,8 +1,10 @@
 # Novah Chrome Web Store submission
 
-This sheet is the source of truth for the Novah `0.1.0` Chrome Web Store
-listing. Copy these answers into the publisher dashboard without broadening the
-claims or data categories.
+This sheet is the source of truth for the next Practice-compatible Chrome Web
+Store listing update. Do not copy it into the publisher dashboard or upload a
+new package without separate Store authorization. The already submitted
+`0.1.0` listing and screenshots describe the prior product and remain external
+historical state until that approved update.
 
 ## Publisher account
 
@@ -18,7 +20,7 @@ remains the extension's product name and branding.
 
 **Name:** Novah
 
-**Summary:** Save what matters. Recall it when it matters.
+**Summary:** Save what matters. Find it when it matters.
 
 **Category:** Education
 
@@ -32,8 +34,8 @@ and retrieve the user's saved notes from a Chrome side panel.
 **Detailed description:**
 
 Novah helps you capture ideas and reflections wherever they occur, find them
-again by meaning, and revisit them at spaced intervals so useful ideas are
-easier to remember and apply.
+again by meaning, and deliberately practise selected notes until you decide
+they have become part of how you think or act.
 
 Select text on a webpage, right-click **Save to Novah**, and review the exact
 selection in the side panel before saving. Novah can keep the page title and
@@ -45,25 +47,27 @@ plain text, forwarded text, or a voice note in a private Telegram chat. Voice
 notes are transcribed and saved as text; Novah does not durably store the raw
 audio.
 
-Use Recall to search your own saved notes in natural language. Results show the
+Use Find to search your own saved notes in natural language. Results show the
 original note, its context and source. When the retrieved evidence is strong
 enough, Novah can provide a short grounded answer with citations to the actual
 notes. When it is not, Novah shows possible matches without inventing an
 answer.
 
-Novah also helps you turn saved information into something you can recall and
-use. Every captured note is scheduled for review after 1, 2, 3, 7, and 21
-calendar days. At your chosen daily review time, due notes are surfaced in one
-Telegram review packet. Try to recall a note before revealing the original,
-then record whether you remembered it, partly remembered it, missed it, or
-skipped it. The web Review page shows due, upcoming, and completed reviews.
+After a successful capture, choose **Done** or **Keep this with me**. Activation
+is explicit and never happens automatically. Up to three active Practices can
+be scheduled from 1 through 30 calendar days apart. Practice always shows the
+exact original note; **Reread** completes an encounter without a memory grade
+or required writing. The full web app supports optional append-only Reflection
+and Story entries, pause and resume, user-declared Integrated status, and
+monthly integration check-ins. The extension itself remains focused on Capture
+and Find, plus activating the note it just saved.
 
 Novah requires an account. Information that you deliberately submit—including
 selected webpage text, manual or Telegram text, voice-note transcriptions,
-optional context, source details, and recall queries—is sent over HTTPS to
+optional context, source details, and Find queries—is sent over HTTPS to
 Novah's Supabase backend so it can be stored and retrieved. OpenAI processes
 the minimum information needed for voice transcription, optional Type
-classification, search embeddings, and grounded recall. New captures do not
+classification, search embeddings, and grounded Find synthesis. New captures do not
 receive generated summaries, tags, or per-note recall prompts.
 
 Core features:
@@ -75,9 +79,9 @@ Core features:
 - Preserve original text and source context.
 - Classify a note only when you leave Type blank.
 - Retrieve your own notes using natural-language search.
-- Revisit every captured note after 1, 2, 3, 7, and 21 days through scheduled
-  Telegram review.
-- Track due, upcoming, and completed reviews in the Novah web app.
+- Explicitly activate a newly saved note with **Keep this with me**.
+- Keep at most three notes in active Practice without displacing another note.
+- Manage due, upcoming, paused, and Integrated Practices in the Novah web app.
 - Keep failed drafts locally so you can retry.
 - Review privacy details and delete or export data from the Novah web app.
 
@@ -102,8 +106,8 @@ text. The menu action is the extension's intentional capture entry point.
 
 ### `sidePanel`
 
-Displays Novah's sign-in, capture, settings and recall interface beside the
-source page without injecting a content script into the page.
+Displays Novah's sign-in, Capture, and Find interface beside the source page
+without injecting a content script into the page.
 
 ### `storage`
 
@@ -134,7 +138,7 @@ download or evaluate remote JavaScript, WebAssembly or executable commands.
 ## Data-use disclosures
 
 Declare the following data types because the extension handles them as part of
-its visible capture, authentication and recall features:
+its visible capture, authentication and Find features:
 
 - **Personally identifiable information:** the email address used for the Novah
   account.
@@ -146,7 +150,7 @@ its visible capture, authentication and recall features:
   extension does not collect continuous browsing history.
 - **Personal communications:** text and voice-note transcriptions deliberately
   sent to the linked Telegram bot, plus manually entered notes, personal
-  context, search queries and explicit note Types that the extension can store
+  context, Find queries and explicit note Types that the extension can store
   or retrieve.
 
 Do not select financial information, health information, precise location, or
@@ -154,7 +158,7 @@ general user-activity tracking unless the product changes before submission.
 
 The disclosed data is used only to provide Novah's single purpose: account
 access, deliberate capture, secure storage, semantic retrieval and user-requested
-recall. It is not sold, used for personalized advertising, used for credit or
+Find. It is not sold, used for personalized advertising, used for credit or
 lending, or transferred for unrelated purposes. Data is transmitted over HTTPS.
 
 Certify the Chrome Web Store Limited Use disclosure only if the submitted build
@@ -207,7 +211,7 @@ this reconciliation.
 4. Confirm the selected text, page title and URL appear in the Capture tab.
 5. Save the note with an explicit Type to avoid waiting for optional
    classification.
-6. Open Recall and search for words from the saved note.
+6. Choose **Done**, open Find, and search for words from the saved note.
 7. Confirm the saved note appears as a result.
 
 If Chrome's PDF viewer does not expose a selected URL, paste the source URL into

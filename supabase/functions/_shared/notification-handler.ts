@@ -1,6 +1,6 @@
-import { MAX_TELEGRAM_MESSAGE_LENGTH } from '../../../packages/shared/src/constants/index.ts';
 import { ApiError, errorResponse } from './errors.ts';
 import { parseOptionalJson } from './http.ts';
+import { sendTelegramMessageParts } from './telegram-message.ts';
 import type {
   ClaimedCheckIn,
   ClaimedPractice,
@@ -13,6 +13,7 @@ import { secureTelegramSecretMatches } from './telegram-handler.ts';
 
 const WINDOW_MINUTES = 10;
 const PROFILE_CONCURRENCY = 5;
+const MAX_CHECK_INS_PER_PACKET = 20;
 
 export interface NotificationProcessorDependencies {
   cronSecret: string;
@@ -122,10 +123,7 @@ export function practiceMessage(practice: ClaimedPractice): string {
   const source = practice.sourceTitle
     ? `\n\nSource: ${practice.sourceTitle}`
     : '';
-  const text = `Practice\n\n${practice.originalText}${source}`;
-  return text.length <= MAX_TELEGRAM_MESSAGE_LENGTH
-    ? text
-    : `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
+  return `Practice\n\n${practice.originalText}${source}`;
 }
 
 export function practiceKeyboard(noteId: string) {
@@ -147,24 +145,22 @@ export function readyPracticeMessage(practice: ClaimedReadyPractice): string {
   const source = practice.sourceTitle
     ? `\n\nSource: ${practice.sourceTitle}`
     : '';
-  const text = `Ready to resume\n\n${practice.originalText}${source}\n\nA Practice slot was not available when this pause ended.`;
-  return text.length <= MAX_TELEGRAM_MESSAGE_LENGTH
-    ? text
-    : `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
+  return `Ready to resume\n\n${practice.originalText}${source}\n\nA Practice slot was not available when this pause ended.`;
 }
 
-export function checkInMessage(checkIns: ClaimedCheckIn[]): string {
+export function checkInMessage(
+  checkIns: ClaimedCheckIn[],
+  startingIndex = 0,
+): string {
   return [
     'Integrated check-in',
     '',
     ...checkIns.flatMap((checkIn, index) => [
-      `${index + 1}. ${checkIn.originalText}`,
+      `${startingIndex + index + 1}. ${checkIn.originalText}`,
       ...(checkIn.sourceTitle ? [`Source: ${checkIn.sourceTitle}`] : []),
       '',
     ]),
-  ]
-    .join('\n')
-    .slice(0, MAX_TELEGRAM_MESSAGE_LENGTH);
+  ].join('\n');
 }
 
 export async function processNotifications(
@@ -218,7 +214,8 @@ export async function processNotifications(
     }
     for (const practice of readyPractices) {
       try {
-        await dependencies.telegram.sendMessage(
+        await sendTelegramMessageParts(
+          dependencies.telegram,
           profile.chatId,
           readyPracticeMessage(practice),
           {
@@ -262,7 +259,8 @@ export async function processNotifications(
     }
     for (const practice of practices) {
       try {
-        await dependencies.telegram.sendMessage(
+        await sendTelegramMessageParts(
+          dependencies.telegram,
           profile.chatId,
           practiceMessage(practice),
           {
@@ -297,26 +295,35 @@ export async function processNotifications(
       result.errors += 1;
       checkIns = [];
     }
-    if (checkIns.length > 0) {
+    for (
+      let packetStart = 0;
+      packetStart < checkIns.length;
+      packetStart += MAX_CHECK_INS_PER_PACKET
+    ) {
+      const packet = checkIns.slice(
+        packetStart,
+        packetStart + MAX_CHECK_INS_PER_PACKET,
+      );
       try {
-        await dependencies.telegram.sendMessage(
+        await sendTelegramMessageParts(
+          dependencies.telegram,
           profile.chatId,
-          checkInMessage(checkIns),
+          checkInMessage(packet, packetStart),
           {
-            inlineKeyboard: checkIns.flatMap((checkIn, index) => [
+            inlineKeyboard: packet.flatMap((checkIn, index) => [
               [
                 {
-                  text: `${index + 1} Still integrated`,
+                  text: `${packetStart + index + 1} Still integrated`,
                   callbackData: `p:c:${checkIn.noteId}`,
                 },
               ],
               [
                 {
-                  text: `${index + 1} Resume practice`,
+                  text: `${packetStart + index + 1} Resume practice`,
                   callbackData: `p:u:${checkIn.noteId}`,
                 },
                 {
-                  text: `${index + 1} Stop check-ins`,
+                  text: `${packetStart + index + 1} Stop check-ins`,
                   callbackData: `p:x:${checkIn.noteId}`,
                 },
               ],
@@ -326,7 +333,7 @@ export async function processNotifications(
         if (
           await dependencies.repository.markCheckInsSent(
             profile.userId,
-            checkIns.map((checkIn) => checkIn.noteId),
+            packet.map((checkIn) => checkIn.noteId),
             window.practiceDate,
             claimedAt,
           )

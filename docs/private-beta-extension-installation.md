@@ -15,13 +15,16 @@ unpacked production build supplied by the publisher.
 7. Sign in using the same Novah account you use at
    `https://novah-ten.vercel.app`.
 
-## Capture and recall
+## Capture and Find
 
 1. Select text on an HTTPS webpage.
 2. Right-click the selection and choose **Save to Novah**.
-3. Review the exact selection and optional source details in the side panel.
+3. Review the exact selection in the side panel. Open **Add details** to edit
+   optional personal context, Type, source title, or source URL.
 4. Choose a Type or leave **Let Novah decide** selected, then save.
-5. Use the Recall tab to search your saved notes in natural language.
+5. Choose **Done** or **Keep this with me**. The latter explicitly activates
+   the saved note in Practice; a slot-full error leaves it safely saved.
+6. Use the Find tab to search your saved notes in natural language.
 
 For Chrome PDF pages, selected-text capture is best effort. If Chrome does not
 provide the source URL, paste it into the optional source field before saving.
@@ -57,9 +60,10 @@ history out of the test.
 7. Open `https://example.com`, select its example paragraph, right-click and
    choose **Save to Novah**.
 8. Confirm the exact selected text, page title and HTTPS URL appear in Capture.
-9. Choose an explicit Type and save. Confirm the success view shows the same
-   original text.
-10. Search Recall for a phrase from the saved note and confirm that note appears.
+9. Choose an explicit Type and save. Confirm the success view shows **Done** and
+   **Keep this with me** without changing the original text.
+10. Open Find, search for a phrase from the saved note, and confirm that note
+    appears.
 11. Close and reopen the side panel; confirm sign-in persists.
 12. Remove the extension and delete the temporary Chrome profile after evidence
     is captured.

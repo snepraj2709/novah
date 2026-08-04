@@ -1,5 +1,4 @@
 import {
-  MAX_TELEGRAM_MESSAGE_LENGTH,
   MAX_TELEGRAM_UPDATE_BYTES,
   MAX_TELEGRAM_VOICE_BYTES,
   MAX_TELEGRAM_VOICE_DURATION_SECONDS,
@@ -9,6 +8,7 @@ import { ApiError, errorResponse } from './errors.ts';
 import { parseJson } from './http.ts';
 import { parseTelegramUpdate } from './telegram-contracts.ts';
 import { hashTelegramLinkCode } from './telegram-link-handler.ts';
+import { sendTelegramMessageParts } from './telegram-message.ts';
 import type {
   TelegramCallbackQuery,
   TelegramGateway,
@@ -60,12 +60,6 @@ function parseCommand(text: string | undefined): ParsedCommand | null {
   return match
     ? { name: match[1].toLowerCase(), argument: match[2]?.trim() ?? '' }
     : null;
-}
-
-function boundedMessage(text: string): string {
-  return text.length <= MAX_TELEGRAM_MESSAGE_LENGTH
-    ? text
-    : `${text.slice(0, MAX_TELEGRAM_MESSAGE_LENGTH - 1)}…`;
 }
 
 export function telegramNotePreview(text: string): string {
@@ -190,7 +184,7 @@ async function send(
   text: string,
   options?: TelegramMessageOptions,
 ): Promise<void> {
-  await telegram.sendMessage(chatId, boundedMessage(text), options);
+  await sendTelegramMessageParts(telegram, chatId, text, options);
 }
 
 async function dispatchCallback(

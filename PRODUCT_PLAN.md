@@ -1,6 +1,12 @@
 # Novah — Product Plan Lock-in and 24-Hour Execution Guide
 
-> Status: Locked for private-beta implementation  
+> Status: Historical private-beta plan; superseded on 4 August 2026 by
+> [`docs/hypomnemata-practice-implementation.md`](docs/hypomnemata-practice-implementation.md).
+> Authority: The Hypomnēmata Practice document is the current frozen product
+> contract. References below to Recall, daily digests, fixed Review stages,
+> Today, Library, old routes, or old Telegram commands describe prior behavior
+> and must not be treated as current implementation instructions or product
+> claims. The execution log remains here as historical evidence.
 > Working name: Novah  
 > Primary owner: Sneha  
 > Execution partner: Codex in Visual Studio Code  
@@ -11,7 +17,9 @@
 
 ## 1. How to use this file with Codex
 
-This file is the product contract, technical scope and execution checklist for the repository. Product decisions marked **Locked** should not be reopened during the 24-hour build unless implementation evidence shows that they are impossible.
+This file is the archived contract, technical scope, and execution checklist for
+the original 24-hour build. Use the current frozen Hypomnēmata Practice document
+for all new implementation and verification work.
 
 ### First prompt to give Codex
 
