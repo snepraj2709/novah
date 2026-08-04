@@ -53,6 +53,50 @@ describe('web Practice foundation', () => {
     }
   });
 
+  it('shows top-center success and failure toasts without hiding Collection notes', async () => {
+    const [collection, styles, toast, toastContext, main] = await Promise.all([
+      readFile(
+        new URL('../src/pages/LibraryPage.tsx', import.meta.url),
+        'utf8',
+      ),
+      readFile(new URL('../src/App.css', import.meta.url), 'utf8'),
+      readFile(new URL('../src/components/Toast.tsx', import.meta.url), 'utf8'),
+      readFile(
+        new URL('../src/components/ToastContext.ts', import.meta.url),
+        'utf8',
+      ),
+      readFile(new URL('../src/main.tsx', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(collection, /useToast\(\)/u);
+    assert.doesNotMatch(collection, /const \[actionToast, setActionToast\]/u);
+    assert.match(collection, /showToast\('success', 'Added to Practice\.'\)/u);
+    assert.match(
+      collection,
+      /async function activate[\s\S]*?catch \(cause\) \{\s*showToast\(\s*'error'/u,
+    );
+    assert.doesNotMatch(
+      collection,
+      /async function activate[\s\S]*?catch \(cause\) \{\s*setError/u,
+    );
+    assert.match(toast, /export function ToastProvider/u);
+    assert.match(toast, /className=\{`action-toast \$\{toast\.tone\}`\}/u);
+    assert.match(toast, /toast\.tone === 'error' \? 'alert' : 'status'/u);
+    assert.match(toast, /setTimeout\([\s\S]*4_000/u);
+    assert.match(toastContext, /createContext/u);
+    assert.match(toastContext, /export function useToast/u);
+    assert.match(
+      main,
+      /<ToastProvider>[\s\S]*<App \/>[\s\S]*<\/ToastProvider>/u,
+    );
+    assert.match(styles, /\.action-toast\s*\{[\s\S]*position:\s*fixed/u);
+    assert.match(styles, /\.action-toast\s*\{[\s\S]*left:\s*50%/u);
+    assert.match(
+      styles,
+      /\.action-toast\s*\{[\s\S]*transform:\s*translateX\(-50%\)/u,
+    );
+  });
+
   it('keeps prompt inputs and entry content out of Practice cards', async () => {
     const card = await readFile(
       new URL('../src/components/NoteCard.tsx', import.meta.url),

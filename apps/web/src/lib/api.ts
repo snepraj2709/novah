@@ -46,22 +46,20 @@ async function invokeFunction(
   }
 
   const configuration = getPublicWebConfig();
+  const functionsBaseUrl = import.meta.env.DEV ? '' : configuration.supabaseUrl;
   let response: Response;
   try {
-    response = await fetch(
-      `${configuration.supabaseUrl}/functions/v1/${functionName}`,
-      {
-        method: 'POST',
-        headers: {
-          apikey: configuration.supabasePublishableKey,
-          Authorization: `Bearer ${data.session.access_token}`,
-          'Content-Type': 'application/json',
-          ...extraHeaders,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(FUNCTION_REQUEST_TIMEOUT_MS),
+    response = await fetch(`${functionsBaseUrl}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        apikey: configuration.supabasePublishableKey,
+        Authorization: `Bearer ${data.session.access_token}`,
+        'Content-Type': 'application/json',
+        ...extraHeaders,
       },
-    );
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(FUNCTION_REQUEST_TIMEOUT_MS),
+    });
   } catch {
     throw new WebApiError(
       'Novah could not reach the server.',

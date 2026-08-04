@@ -112,22 +112,29 @@ From the repository root:
 ```bash
 pnpm install --frozen-lockfile
 cp .env.example .env
-pnpm db:start
-pnpm exec supabase status
+pnpm dev
 ```
 
-Use the local status output to fill `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in the ignored `.env`. Then reset the local schema and start the web app:
+Fill the ignored `.env` before starting. `pnpm dev` preserves that configured
+Supabase project for Auth and database requests, starts Vite at
+`http://127.0.0.1:5173`, and proxies only Edge Function requests through the
+local Vite server using `APP_URL` as the allowed upstream origin so browser
+CORS does not block them. Stop Vite with Ctrl+C.
+
+To use the local Supabase stack instead of a configured hosted project, start
+it, copy its public endpoint and key into `.env`, and reset its schema:
 
 ```bash
+pnpm db:start
+pnpm exec supabase status
 pnpm db:reset
-pnpm --filter web dev
 ```
-
-The web development server runs through Vite, normally at `http://localhost:5173`.
 
 `pnpm db:reset` resets only the local Supabase database, replays every tracked migration, and loads the synthetic test seed. It does not change the hosted project.
 
-This starts the local database and web client, not a complete hosted copy. Capture, search, Telegram webhooks, and scheduled delivery depend on Edge Functions and server-side configuration. Telegram also needs a public HTTPS webhook; Supabase Cron and hosted secrets are not created by the commands above.
+The local Supabase commands do not create a complete hosted copy. Telegram
+needs a public HTTPS webhook; Supabase Cron and hosted secrets are not created
+by them.
 
 ## Environment variables
 

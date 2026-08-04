@@ -10,8 +10,27 @@
 Docker Desktop and the workspace-pinned Supabase CLI are required.
 
 ```bash
+pnpm dev
+```
+
+`pnpm dev` loads the ignored root `.env` and starts the Vite web app at
+`http://127.0.0.1:5173`. Auth and database requests continue to use the
+configured Supabase project. Only Edge Function requests pass through Vite's
+local same-origin proxy, which presents `APP_URL` as the upstream origin to
+avoid browser CORS without changing the hosted allowlist. Stop Vite with
+Ctrl+C.
+
+For an isolated local Supabase stack, set the public values in `.env` to the
+local status output before starting the web app:
+
+```bash
 pnpm db:start
 pnpm db:reset
+```
+
+Run the local verification commands separately:
+
+```bash
 pnpm db:types
 pnpm db:test
 pnpm test:functions
@@ -125,7 +144,7 @@ chat IDs, prompt IDs, or note content.
 ## Web and extension
 
 ```bash
-pnpm --filter web dev
+pnpm dev
 pnpm --filter web test
 pnpm --filter web build
 

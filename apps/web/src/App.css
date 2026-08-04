@@ -503,6 +503,32 @@ select {
   color: var(--green-dark);
 }
 
+.action-toast {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 80;
+  width: min(calc(100vw - 2rem), 30rem);
+  padding: 0.85rem 1rem;
+  transform: translateX(-50%);
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  box-shadow: 0 14px 40px rgba(13, 37, 30, 0.2);
+  text-align: center;
+  font-weight: 700;
+  pointer-events: none;
+}
+.action-toast.success {
+  border-color: #add6c8;
+  background: var(--green-pale);
+  color: var(--green-dark);
+}
+.action-toast.error {
+  border-color: #ecc6bd;
+  background: var(--coral-pale);
+  color: #8c3928;
+}
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;

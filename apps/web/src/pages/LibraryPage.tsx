@@ -16,6 +16,7 @@ import {
 import { ConfirmDialog } from '../components/ConfirmDialog.tsx';
 import { NoteCard } from '../components/NoteCard.tsx';
 import { NoteDetailDrawer } from '../components/NoteDetailDrawer.tsx';
+import { useToast } from '../components/ToastContext.ts';
 import { managePractice, searchNotes, WebApiError } from '../lib/api.ts';
 import {
   deleteOwnedNote,
@@ -37,6 +38,7 @@ const PAGE_SIZE = 6;
 type CollectionStatus = 'saved' | 'active' | 'paused' | 'integrated';
 
 export function CollectionPage({ userId }: { userId: string }) {
+  const { dismissToast, showToast } = useToast();
   const [noteType, setNoteType] = useState<NoteType | 'all'>('all');
   const [status, setStatus] = useState<CollectionStatus>('saved');
   const [page, setPage] = useState(0);
@@ -237,7 +239,7 @@ export function CollectionPage({ userId }: { userId: string }) {
   }
 
   async function activate(note: DashboardNote) {
-    setError(null);
+    dismissToast();
     try {
       const result = await managePractice({
         action: 'activate',
@@ -260,9 +262,11 @@ export function CollectionPage({ userId }: { userId: string }) {
           new Map(current).set(note.id, result.practice),
         );
       }
+      showToast('success', 'Added to Practice.');
       if (!searchMode) await load();
     } catch (cause) {
-      setError(
+      showToast(
+        'error',
         cause instanceof WebApiError && cause.code === 'practice_slots_full'
           ? 'All three Practice slots are in use. Pause or integrate one before activating another.'
           : errorMessage(cause, 'Practice could not be started.'),
