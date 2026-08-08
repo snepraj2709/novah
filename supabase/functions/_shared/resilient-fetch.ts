@@ -21,14 +21,14 @@ function retryDelay(response: Response | null, attempt: number): number {
   if (retryAfter) {
     const seconds = Number(retryAfter);
     if (Number.isFinite(seconds) && seconds >= 0) {
-      return Math.min(2_000, Math.ceil(seconds * 1_000));
+      return Math.min(5_000, Math.ceil(seconds * 1_000));
     }
     const date = Date.parse(retryAfter);
     if (Number.isFinite(date)) {
-      return Math.min(2_000, Math.max(0, date - Date.now()));
+      return Math.min(5_000, Math.max(0, date - Date.now()));
     }
   }
-  return Math.min(2_000, 250 * 2 ** (attempt - 1));
+  return Math.min(5_000, 250 * 2 ** (attempt - 1));
 }
 
 export async function resilientFetch(

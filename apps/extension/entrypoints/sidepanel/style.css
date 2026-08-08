@@ -293,8 +293,12 @@ button:disabled {
   color: #67706a;
   font-size: 13px;
 }
-.empty-card .primary {
+.empty-card > .primary {
   margin-top: 8px;
+}
+.empty-card .button-row {
+  align-items: stretch;
+  justify-content: center;
 }
 .compact-empty {
   margin: 20px 0;

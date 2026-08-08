@@ -64,8 +64,21 @@ describe('extension Practice foundation', () => {
       'utf8',
     );
 
-    assert.match(source, /const SAVED_SUCCESS_DURATION_MS = 2_000;/u);
+    assert.match(source, /const SAVED_SUCCESS_DURATION_MS = 5_000;/u);
     assert.match(source, /window\.setTimeout\([\s\S]*setSaved\(null\)/u);
     assert.match(source, /window\.clearTimeout\(timeoutId\)/u);
+  });
+
+  it('keeps the saved-screen action buttons aligned', async () => {
+    const styles = await readFile(
+      new URL('../entrypoints/sidepanel/style.css', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(
+      styles,
+      /\.empty-card \.button-row \{\n  align-items: stretch;\n  justify-content: center;\n\}/u,
+    );
+    assert.match(styles, /\.empty-card > \.primary \{/u);
   });
 });
