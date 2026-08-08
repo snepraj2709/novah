@@ -10,6 +10,7 @@ import {
   loadDraftCollection,
   saveDraftCollection,
 } from '../lib/draft-storage.ts';
+import { preparePageToastBridge, showPageToast } from '../lib/page-toast.ts';
 import {
   appendShortcutCaptureIntent,
   isResumeShortcutCapturesMessage,
@@ -83,11 +84,28 @@ function showSuccessBadge(tabId: number): Promise<void> {
   return showBadge(tabId, '✓', '#2f6f55', 'Saved to Novah');
 }
 
+async function showSuccessFeedback(tabId: number): Promise<void> {
+  await Promise.allSettled([
+    showSuccessBadge(tabId),
+    showPageToast(tabId, 'Saved to Novah', 'success'),
+  ]);
+}
+
 function showErrorBadge(
   tabId: number | undefined,
   title: string,
 ): Promise<void> {
   return showBadge(tabId, '!', '#b42318', title);
+}
+
+async function showErrorFeedback(
+  tabId: number,
+  message: string,
+): Promise<void> {
+  await Promise.allSettled([
+    showErrorBadge(tabId, message),
+    showPageToast(tabId, message, 'error'),
+  ]);
 }
 
 function readSelectedText(): string {
@@ -215,9 +233,9 @@ async function processPendingShortcutCaptures({
       );
       await persistFailedDraft(result.failed, result.saved, message);
       await Promise.allSettled(
-        result.saved.map((item) => showSuccessBadge(item.tabId)),
+        result.saved.map((item) => showSuccessFeedback(item.tabId)),
       );
-      await showErrorBadge(result.failed.tabId, message);
+      await showErrorFeedback(result.failed.tabId, message);
       await openPanel(
         result.failed,
         'Save failed. Click Novah to retry your safe draft.',
@@ -228,7 +246,7 @@ async function processPendingShortcutCaptures({
     const remaining = await removeSavedIntents(result.saved);
     savedAcrossPasses.push(...result.saved);
     await Promise.allSettled(
-      result.saved.map((item) => showSuccessBadge(item.tabId)),
+      result.saved.map((item) => showSuccessFeedback(item.tabId)),
     );
 
     if (result.status === 'needs-auth') {
@@ -283,9 +301,13 @@ async function captureSelectionFromCommand(tab: CommandTab): Promise<void> {
   }
 
   if (!selectionText.trim()) {
-    await showErrorBadge(tab.id, 'Select some text before saving to Novah.');
+    await showErrorFeedback(tab.id, 'Select some text before saving to Novah.');
     return;
   }
+
+  await preparePageToastBridge(tab.id).catch(() => {
+    // Saving still succeeds if this page stops accepting injected feedback.
+  });
 
   const intent: ShortcutCaptureIntent = {
     draft: draftFromSelection({
@@ -362,10 +384,15 @@ export default defineBackground(() => {
   browser.commands.onCommand.addListener((command, tab) => {
     if (command !== SAVE_SELECTION_COMMAND) return;
     void captureSelectionFromCommand(tab ?? {}).catch(() =>
-      showErrorBadge(
-        tab?.id,
-        'Novah could not save this selection. Please try again.',
-      ),
+      tab?.id === undefined
+        ? showErrorBadge(
+            undefined,
+            'Novah could not save this selection. Please try again.',
+          )
+        : showErrorFeedback(
+            tab.id,
+            'Novah could not save this selection. Please try again.',
+          ),
     );
   });
 
