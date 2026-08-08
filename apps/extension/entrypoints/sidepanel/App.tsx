@@ -39,6 +39,8 @@ import { supabase } from '../../lib/supabase.ts';
 type Tab = 'capture' | 'find';
 type AuthMode = 'sign-in' | 'create-account';
 
+const SAVED_SUCCESS_DURATION_MS = 2_000;
+
 const NOTE_TYPES: Array<{ value: NoteType; label: string }> = [
   ...SHARED_NOTE_TYPES.map((value) => ({
     value,
@@ -182,6 +184,17 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
     null,
   );
   const savingRef = useRef(false);
+
+  useEffect(() => {
+    if (!saved || busy) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setSaved(null);
+      setActivationMessage(null);
+    }, SAVED_SUCCESS_DURATION_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [saved, busy]);
 
   async function createNewDraft(): Promise<CaptureDraft> {
     setFieldErrors({});

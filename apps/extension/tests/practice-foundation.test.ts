@@ -57,4 +57,15 @@ describe('extension Practice foundation', () => {
     assert.match(source, /Saved, but all three Practice slots are full/u);
     assert.doesNotMatch(source, /setTab\('settings'\)|setTab\('recall'\)/u);
   });
+
+  it('dismisses the saved screen shortly after capture', async () => {
+    const source = await readFile(
+      new URL('../entrypoints/sidepanel/App.tsx', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(source, /const SAVED_SUCCESS_DURATION_MS = 2_000;/u);
+    assert.match(source, /window\.setTimeout\([\s\S]*setSaved\(null\)/u);
+    assert.match(source, /window\.clearTimeout\(timeoutId\)/u);
+  });
 });
