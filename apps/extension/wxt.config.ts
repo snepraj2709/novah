@@ -13,11 +13,21 @@ export default defineConfig({
     name: 'Novah',
     description: 'Save what matters. Find it and keep it in Practice.',
     version: '0.1.0',
+    minimum_chrome_version: '141',
     ...(mode === 'store' ? {} : { key: developmentExtensionPublicKey }),
-    permissions: ['contextMenus', 'storage', 'activeTab'],
+    permissions: ['contextMenus', 'storage', 'activeTab', 'scripting'],
     host_permissions: ['https://fqinppulljqefbvukcpg.supabase.co/*'],
     action: {
       default_title: 'Open Novah',
+    },
+    commands: {
+      'save-selection-to-novah': {
+        suggested_key: {
+          default: 'Ctrl+Shift+S',
+          mac: 'Command+Shift+S',
+        },
+        description: 'Save selected text to Novah',
+      },
     },
   }),
 });

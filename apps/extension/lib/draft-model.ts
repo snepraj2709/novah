@@ -74,7 +74,7 @@ export function createCaptureDraft(
 
 export function draftFromSelection(
   selection: SelectionCapture,
-  clientRequestId = crypto.randomUUID(),
+  clientRequestId: string = crypto.randomUUID(),
 ): CaptureDraft {
   const pageUrl = selection.pageUrl?.trim() ?? '';
   const validSourceUrl = isHttpUrl(pageUrl) ? pageUrl : '';

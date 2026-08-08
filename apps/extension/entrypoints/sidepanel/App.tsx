@@ -34,6 +34,14 @@ import {
   saveDraftCollection,
   subscribeToDraftCollection,
 } from '../../lib/draft-storage.ts';
+import {
+  dismissShortcutNotice,
+  loadShortcutCaptureQueue,
+  RESUME_SHORTCUT_CAPTURES_MESSAGE,
+  shouldShowShortcutNotice,
+  subscribeToShortcutCaptureQueue,
+  type ResumeShortcutCapturesMessage,
+} from '../../lib/shortcut-capture.ts';
 import { supabase } from '../../lib/supabase.ts';
 
 type Tab = 'capture' | 'find';
@@ -301,8 +309,9 @@ function CapturePanel({ collection, setCollection }: CapturePanelProps) {
           <>
             <h2>Capture what matters</h2>
             <p>
-              Select text on a page and choose “Save to Novah,” or start a note
-              here.
+              Select text and press Command-Shift-S on Mac or Ctrl-Shift-S on
+              Windows and Linux, or choose “Save to Novah” from the right-click
+              menu.
             </p>
           </>
         )}
@@ -627,14 +636,24 @@ export default function App() {
   const [collection, setCollectionState] = useState<DraftCollection>(
     emptyDraftCollection(),
   );
+  const [pendingShortcutCount, setPendingShortcutCount] = useState(0);
+  const [showShortcutToast, setShowShortcutToast] = useState(false);
+  const resumedSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void Promise.all([supabase.auth.getSession(), loadDraftCollection()])
-      .then(([auth, drafts]) => {
+    void Promise.all([
+      supabase.auth.getSession(),
+      loadDraftCollection(),
+      loadShortcutCaptureQueue(),
+      shouldShowShortcutNotice(),
+    ])
+      .then(([auth, drafts, shortcutQueue, showNotice]) => {
         if (!active) return;
         setSession(auth.data.session);
         setCollectionState(drafts);
+        setPendingShortcutCount(shortcutQueue.length);
+        setShowShortcutToast(showNotice);
       })
       .finally(() => {
         if (active) setAuthLoading(false);
@@ -643,12 +662,31 @@ export default function App() {
       setSession(nextSession),
     );
     const unsubscribeDrafts = subscribeToDraftCollection(setCollectionState);
+    const unsubscribeShortcutQueue = subscribeToShortcutCaptureQueue((queue) =>
+      setPendingShortcutCount(queue.length),
+    );
     return () => {
       active = false;
       data.subscription.unsubscribe();
       unsubscribeDrafts();
+      unsubscribeShortcutQueue();
     };
   }, []);
+
+  useEffect(() => {
+    if (authLoading || !session) {
+      resumedSessionRef.current = null;
+      return;
+    }
+    if (resumedSessionRef.current === session.access_token) return;
+    resumedSessionRef.current = session.access_token;
+    const message: ResumeShortcutCapturesMessage = {
+      type: RESUME_SHORTCUT_CAPTURES_MESSAGE,
+    };
+    void browser.runtime.sendMessage(message).catch(() => {
+      // The persisted queue will be retried the next time the worker starts.
+    });
+  }, [authLoading, session]);
 
   const activeDraft = useMemo(
     () =>
@@ -684,13 +722,35 @@ export default function App() {
         )}
       </header>
 
+      {showShortcutToast && (
+        <aside className="shortcut-toast" role="status">
+          <p>
+            Novah’s save shortcut isn’t assigned. Open{' '}
+            <strong>chrome://extensions/shortcuts</strong> and choose any
+            shortcut you like.
+          </p>
+          <button
+            type="button"
+            aria-label="Dismiss shortcut reminder"
+            onClick={() => {
+              setShowShortcutToast(false);
+              void dismissShortcutNotice();
+            }}
+          >
+            ×
+          </button>
+        </aside>
+      )}
+
       {authLoading ? (
         <div className="loading-state" role="status">
           <span className="spinner" />
           Opening Novah…
         </div>
       ) : !session ? (
-        <AuthPanel hasDraft={Boolean(activeDraft)} />
+        <AuthPanel
+          hasDraft={Boolean(activeDraft) || pendingShortcutCount > 0}
+        />
       ) : (
         <>
           <nav className="tabs" aria-label="Novah tools">

@@ -7,6 +7,26 @@ successful save, the success state clears automatically after two seconds;
 **Done** clears it immediately and **Keep this with me** explicitly activates
 the note through `manage-practice`.
 
+## Keyboard capture
+
+Select text on a normal webpage and press **Command-Shift-S** on macOS or
+**Ctrl-Shift-S** on Windows and Linux. When signed in, Novah saves the original
+selection, page title, and HTTP URL directly without opening or changing the
+side panel. A green check badge confirms the save and clears after about two
+seconds.
+
+When sign-in is required, Novah keeps the complete capture safely on the device
+and opens the login side panel. It saves automatically after authentication and
+collapses the panel only after the server confirms success. A failed request is
+kept as a normal retryable draft in the existing Capture UI.
+
+Chrome-internal pages and Chrome's built-in PDF viewer can block selection
+scripts. On those pages the shortcut shows a red error badge and creates no
+note; use the existing **Save to Novah** right-click action when Chrome exposes
+it. If Chrome or another extension already uses the suggested shortcut, open
+`chrome://extensions/shortcuts` and assign a different key combination to
+**Save selected text to Novah**.
+
 The production bundle reads only the public `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_PUBLISHABLE_KEY` values from the ignored root `.env`. OpenAI and
 privileged Supabase credentials must never be added to this application.
@@ -41,6 +61,8 @@ To replace an extension loaded from another directory:
 For every later code change, run `pnpm --filter extension build`, close the
 open side panel, click **Reload** on the Novah card in `chrome://extensions`,
 and reopen the panel. There is no need to remove or load the extension again.
+After adding or changing a command, also confirm its registration at
+`chrome://extensions/shortcuts`.
 
 The committed public manifest key gives the unpacked build the stable ID
 `illdnfhcgdhkgbifepbejobplgikmmlp`; that ID must be present in the server-side

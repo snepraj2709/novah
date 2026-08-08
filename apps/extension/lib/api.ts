@@ -82,9 +82,11 @@ async function invokeFunction(
       error?: { code?: unknown; message?: unknown; retryable?: unknown };
     } | null;
     const code =
-      typeof errorPayload?.error?.code === 'string'
-        ? errorPayload.error.code
-        : 'request_failed';
+      response.status === 401
+        ? 'unauthorized'
+        : typeof errorPayload?.error?.code === 'string'
+          ? errorPayload.error.code
+          : 'request_failed';
     const retryable = errorPayload?.error?.retryable === true;
     const fallback =
       response.status === 401
